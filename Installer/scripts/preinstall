@@ -1,0 +1,18 @@
+#!/bin/sh
+# Runs as root before the new version is copied to /Applications.
+# - Quits a running copy (it is about to be replaced).
+# - Moves the app under its old name ("Liquid Venster") to the user's Trash, so there is
+#   only one copy afterwards (both use the same bundle identifier).
+/usr/bin/pkill -x TrueLiquidGlass 2>/dev/null || true
+/usr/bin/pkill -x LiquidVenster 2>/dev/null || true
+
+OLD="/Applications/Liquid Venster.app"
+CONSOLE_USER=$(/usr/bin/stat -f %Su /dev/console)
+if [ -d "$OLD" ] && [ -n "$CONSOLE_USER" ] && [ "$CONSOLE_USER" != "root" ] && [ "$CONSOLE_USER" != "loginwindow" ]; then
+    USER_HOME=$(/usr/bin/dscl . -read "/Users/$CONSOLE_USER" NFSHomeDirectory 2>/dev/null | /usr/bin/awk '{print $2}')
+    if [ -n "$USER_HOME" ] && [ -d "$USER_HOME/.Trash" ]; then
+        DEST="$USER_HOME/.Trash/Liquid Venster $(/bin/date +%Y%m%d-%H%M%S).app"
+        /bin/mv "$OLD" "$DEST" && /usr/sbin/chown -R "$CONSOLE_USER" "$DEST"
+    fi
+fi
+exit 0

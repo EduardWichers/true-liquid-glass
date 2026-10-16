@@ -1,0 +1,13 @@
+#!/bin/sh
+# Runs as root after installation: register the app and open it for the logged-in user,
+# so it can ask for its permissions and start running as a background service.
+APP="/Applications/True Liquid Glass.app"
+LSREGISTER=/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister
+[ -x "$LSREGISTER" ] && "$LSREGISTER" -f "$APP" >/dev/null 2>&1
+
+CONSOLE_USER=$(/usr/bin/stat -f %Su /dev/console)
+if [ -d "$APP" ] && [ -n "$CONSOLE_USER" ] && [ "$CONSOLE_USER" != "root" ] && [ "$CONSOLE_USER" != "loginwindow" ]; then
+    CONSOLE_UID=$(/usr/bin/id -u "$CONSOLE_USER")
+    /bin/launchctl asuser "$CONSOLE_UID" /usr/bin/sudo -u "$CONSOLE_USER" /usr/bin/open "$APP" >/dev/null 2>&1 || true
+fi
+exit 0

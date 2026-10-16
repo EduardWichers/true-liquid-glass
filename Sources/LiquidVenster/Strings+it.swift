@@ -129,7 +129,7 @@ extension Strings {
         .faqQ2: "Non succede nulla quando faccio clic sul pulsante giallo o rosso",
         .faqA2: "Controlla la diagnosi qui sopra. Le finestre a tutto schermo, le finestre divise su due schermi, i clic con ⌘, ⌥, ⌃ o ⇧ premuto e le app con una propria barra del titolo usano l’animazione normale. Nelle altre app si usano solo i pulsanti giallo e rosso, non ⌘M o ⌘W.",
         .faqQ3: "macOS dice che l’app non può essere aperta",
-        .faqA3: "L’app non è distribuita tramite l’App Store. Fai clic con il tasto destro sull’app e scegli Apri, oppure fai clic su “Apri comunque” in Impostazioni di Sistema › Privacy e sicurezza.",
+        .faqA3: "L’app non è autenticata da Apple. Fai clic su Fine, apri Impostazioni di Sistema › Privacy e sicurezza, scorri fino a Sicurezza e fai clic su “Apri comunque”; poi conferma con la password o Touch ID.",
         .faqQ4: "L’acqua scorre nel punto sbagliato",
         .faqA4: "L’acqua scorre verso l’icona dell’app nel Dock. Se il Dock è nascosto o su un altro schermo, scorre verso il bordo dello schermo più vicino. Senza Accessibilità la posizione del Dock viene stimata.",
         .faqQ5: "Lo schermo sembra bloccarsi per un attimo",
@@ -162,5 +162,7 @@ extension Strings {
         .faqA7: "Funziona in background come servizio. Fai clic sulla goccia d’acqua nella barra dei menu, oppure riapri l’app da Applicazioni per vedere le impostazioni.",
         .faqQ8: "Una finestra è tornata dopo essere evaporata",
         .faqA8: "L’app ha chiesto qualcosa prima di chiudersi, per esempio se salvare le modifiche. La finestra resta aperta così puoi rispondere.",
+        .creditsMadeBy: "Creato da %@",
+        .versionLabel: "Versione %@",
     ]
 }

@@ -129,7 +129,7 @@ extension Strings {
         .faqQ2: "Er gebeurt niets als ik op de gele of rode knop klik",
         .faqA2: "Bekijk de diagnose hierboven. Vensters in schermvullende weergave, vensters verdeeld over twee schermen, klikken met ⌘, ⌥, ⌃ of ⇧ ingedrukt en apps met een eigen titelbalk krijgen de gewone animatie. Bij andere apps werken alleen de gele en rode knop, niet ⌘M of ⌘W.",
         .faqQ3: "macOS zegt dat de app niet kan worden geopend",
-        .faqA3: "De app komt niet uit de App Store. Klik met de rechtermuisknop op de app en kies Open, of klik op ‘Open toch’ in Systeeminstellingen › Privacy en beveiliging.",
+        .faqA3: "De app is niet door Apple gecontroleerd. Klik op Gereed, open Systeeminstellingen › Privacy en beveiliging, scrol naar Beveiliging en klik op ‘Open toch’; bevestig daarna met je wachtwoord of Touch ID.",
         .faqQ4: "Het water stroomt naar de verkeerde plek",
         .faqA4: "Het water stroomt naar het Dock-icoon van de app. Is het Dock verborgen of staat het op een ander scherm, dan stroomt het naar de dichtstbijzijnde schermrand. Zonder Toegankelijkheid wordt de plek van het Dock geschat.",
         .faqQ5: "Het scherm lijkt heel even stil te staan",
@@ -162,5 +162,7 @@ extension Strings {
         .faqA7: "Hij draait op de achtergrond als dienst. Klik op de waterdruppel in de menubalk, of open de app opnieuw vanuit Programma's om de instellingen te zien.",
         .faqQ8: "Een venster kwam terug na het verdampen",
         .faqA8: "De app vroeg iets voordat hij sloot, bijvoorbeeld of je wijzigingen wilt bewaren. Het venster blijft dan open zodat je kunt antwoorden.",
+        .creditsMadeBy: "Gemaakt door %@",
+        .versionLabel: "Versie %@",
     ]
 }

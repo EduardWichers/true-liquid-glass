@@ -5,11 +5,11 @@ import SwiftUI
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private let settings = AppSettings.shared
-    private let status = AppStatus()
+    let status = AppStatus()
     private let interceptor = ClickInterceptor()
     private let arguments: [String]
 
-    private var settingsWindow: LiquidWindow?
+    private(set) var settingsWindow: LiquidWindow?
     private var statusItem: NSStatusItem?
     private var refreshTimer: Timer?
     private var cancellables: Set<AnyCancellable> = []
@@ -90,7 +90,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         LoginItem.enableOnFirstLaunchIfInstalled()
         refresh()
 
-        if let index = arguments.firstIndex(of: "--demo") {
+        if let index = arguments.firstIndex(of: "--make-screenshots") {
+            // `--make-screenshots <folder> [--language xx]`: images for the README.
+            let folder = index + 1 < arguments.count ? arguments[index + 1] : "screenshots"
+            if let languageIndex = arguments.firstIndex(of: "--language"), languageIndex + 1 < arguments.count,
+               let language = AppLanguage(rawValue: arguments[languageIndex + 1]) {
+                Localizer.shared.useForThisSession(language)
+            }
+            Task { @MainActor in
+                let ok = await ScreenshotMaker.run(outputDirectory: URL(fileURLWithPath: folder, isDirectory: true), delegate: self)
+                self.interceptor.stop()
+                exit(ok ? 0 : 1)
+            }
+        } else if let index = arguments.firstIndex(of: "--demo") {
             let cycles = (index + 1 < arguments.count ? Int(arguments[index + 1]) : nil) ?? 2
             runDemo(cycles: max(1, min(cycles, 20)), quitAfterwards: arguments.contains("--quit-after"))
         } else if launchedAsLoginItem && status.isFullyConfigured {
@@ -182,7 +194,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         presentSettings(tab: .troubleshooting)
     }
 
-    private func presentSettings(tab: SettingsTab?) {
+    func presentSettings(tab: SettingsTab?) {
         if settingsWindow == nil {
             let window = LiquidWindow(contentRect: NSRect(x: 0, y: 0, width: 560, height: 740),
                                       styleMask: [.titled, .closable, .miniaturizable, .resizable],
@@ -269,6 +281,22 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
     }
 
+    @objc func showAbout() {
+        let credits = NSMutableAttributedString(string: tr(.creditsMadeBy, AppInfo.author),
+                                                attributes: [.font: NSFont.systemFont(ofSize: 11),
+                                                             .foregroundColor: NSColor.secondaryLabelColor])
+        if let url = AppInfo.authorURL {
+            credits.append(NSAttributedString(string: "\n"))
+            credits.append(NSAttributedString(string: url.absoluteString,
+                                              attributes: [.link: url, .font: NSFont.systemFont(ofSize: 11)]))
+        }
+        let paragraph = NSMutableParagraphStyle()
+        paragraph.alignment = .center
+        credits.addAttribute(.paragraphStyle, value: paragraph, range: NSRange(location: 0, length: credits.length))
+        NSApp.activate()
+        NSApp.orderFrontStandardAboutPanel(options: [.applicationName: AppInfo.name, .credits: credits])
+    }
+
     @objc func openDemo() {
         DemoWindows.open()
     }
@@ -308,8 +336,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
         let appItem = NSMenuItem()
         let appMenu = NSMenu(title: AppInfo.name)
-        appMenu.addItem(withTitle: tr(.menuAbout),
-                        action: #selector(NSApplication.orderFrontStandardAboutPanel(_:)), keyEquivalent: "")
+        let about = appMenu.addItem(withTitle: tr(.menuAbout), action: #selector(showAbout), keyEquivalent: "")
+        about.target = self
         appMenu.addItem(.separator())
         let prefs = appMenu.addItem(withTitle: tr(.menuSettings), action: #selector(showSettings), keyEquivalent: ",")
         prefs.target = self

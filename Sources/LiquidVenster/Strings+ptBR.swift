@@ -129,7 +129,7 @@ extension Strings {
         .faqQ2: "Nada acontece quando clico no botão amarelo ou vermelho",
         .faqA2: "Confira o diagnóstico acima. Janelas em tela cheia, janelas divididas entre duas telas, cliques com ⌘, ⌥, ⌃ ou ⇧ pressionado e apps com barra de título própria usam a animação normal. Em outros apps, apenas os botões amarelo e vermelho são usados, não ⌘M nem ⌘W.",
         .faqQ3: "O macOS diz que o app não pode ser aberto",
-        .faqA3: "O app não é distribuído pela App Store. Clique com o botão direito no app e escolha Abrir, ou clique em “Abrir Mesmo Assim” em Ajustes do Sistema › Privacidade e Segurança.",
+        .faqA3: "O app não é notarizado pela Apple. Clique em OK, abra Ajustes do Sistema › Privacidade e Segurança, role até Segurança e clique em “Abrir Mesmo Assim”; depois confirme com sua senha ou Touch ID.",
         .faqQ4: "A água escorre para o lugar errado",
         .faqA4: "A água escorre para o ícone do app no Dock. Se o Dock estiver oculto ou em outra tela, ela escorre para a borda de tela mais próxima. Sem Acessibilidade, a posição do Dock é estimada.",
         .faqQ5: "A tela parece congelar por um instante",
@@ -162,5 +162,7 @@ extension Strings {
         .faqA7: "Ele funciona em segundo plano como um serviço. Clique na gota d’água na barra de menus ou abra o app novamente em Aplicativos para ver os ajustes.",
         .faqQ8: "Uma janela voltou depois de evaporar",
         .faqA8: "O app perguntou algo antes de fechar, por exemplo se você queria salvar as alterações. A janela continua aberta para que você possa responder.",
+        .creditsMadeBy: "Criado por %@",
+        .versionLabel: "Versão %@",
     ]
 }

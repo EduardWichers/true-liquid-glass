@@ -129,7 +129,7 @@ extension Strings {
         .faqQ2: "Beim Klick auf die gelbe oder rote Taste passiert nichts",
         .faqA2: "Sieh dir die Diagnose oben an. Fenster im Vollbild, Fenster über zwei Bildschirme, Klicks mit gedrückter ⌘-, ⌥-, ⌃- oder ⇧-Taste und Apps mit eigener Titelleiste bekommen die normale Animation. In anderen Apps werden nur die gelbe und die rote Taste genutzt, nicht ⌘M oder ⌘W.",
         .faqQ3: "macOS sagt, die App kann nicht geöffnet werden",
-        .faqA3: "Die App stammt nicht aus dem App Store. Klicke mit der rechten Maustaste auf die App und wähle „Öffnen“ oder klicke in Systemeinstellungen › Datenschutz & Sicherheit auf „Dennoch öffnen“.",
+        .faqA3: "Die App ist nicht von Apple beglaubigt. Klicke auf „Fertig“, öffne Systemeinstellungen › Datenschutz & Sicherheit, scrolle zu „Sicherheit“ und klicke auf „Dennoch öffnen“; bestätige dann mit deinem Passwort oder Touch ID.",
         .faqQ4: "Das Wasser fließt an die falsche Stelle",
         .faqA4: "Das Wasser fließt zum Dock-Symbol der App. Ist das Dock ausgeblendet oder auf einem anderen Bildschirm, fließt es zum nächsten Bildschirmrand. Ohne Bedienungshilfen wird die Position des Docks geschätzt.",
         .faqQ5: "Der Bildschirm scheint kurz einzufrieren",
@@ -162,5 +162,7 @@ extension Strings {
         .faqA7: "Sie läuft im Hintergrund als Dienst. Klicke auf den Wassertropfen in der Menüleiste oder öffne die App erneut im Ordner „Programme“, um die Einstellungen zu sehen.",
         .faqQ8: "Ein Fenster kam nach dem Verdampfen zurück",
         .faqA8: "Die App hat vor dem Schließen etwas gefragt, zum Beispiel ob Änderungen gesichert werden sollen. Das Fenster bleibt dann offen, damit du antworten kannst.",
+        .creditsMadeBy: "Erstellt von %@",
+        .versionLabel: "Version %@",
     ]
 }

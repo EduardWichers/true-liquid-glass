@@ -25,6 +25,7 @@ enum InstallerPages {
           <li>\(t(.instAfter2))</li>
         </ul>
         <p class="note">\(t(.instPrivacy))</p>
+        <p class="credits">\(escape(Localizer.shared.format(.creditsMadeBy, [AppInfo.author], in: language))) · \(escape(Localizer.shared.format(.versionLabel, [AppInfo.version], in: language)))</p>
         """
         return page(language: language, body: body)
     }
@@ -58,8 +59,9 @@ enum InstallerPages {
           ul, ol { padding-left: 20px; margin: 6px 0; }
           li { margin: 5px 0; }
           .note { margin-top: 18px; padding: 10px 12px; border-radius: 8px; background: rgba(0, 122, 255, 0.08); }
+          .credits { margin-top: 14px; color: #6b7280; font-size: 11px; }
           @media (prefers-color-scheme: dark) {
-            .tag { color: #9ca3af; }
+            .tag, .credits { color: #9ca3af; }
             .note { background: rgba(10, 132, 255, 0.18); }
           }
         </style>

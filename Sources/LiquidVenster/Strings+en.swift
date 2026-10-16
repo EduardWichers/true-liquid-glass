@@ -130,7 +130,7 @@ extension Strings {
         .faqQ2: "Nothing happens when I click the yellow or red button",
         .faqA2: "Check the diagnosis above. Windows in full screen, windows spread over two displays, clicks with ⌘, ⌥, ⌃ or ⇧ held down and apps with their own title bar get the normal animation. In other apps only the yellow and red buttons are used, not ⌘M or ⌘W.",
         .faqQ3: "macOS says the app can’t be opened",
-        .faqA3: "The app isn’t distributed through the App Store. Right-click the app and choose Open, or click “Open Anyway” in System Settings › Privacy & Security.",
+        .faqA3: "The app isn’t notarized by Apple. Click Done, open System Settings › Privacy & Security, scroll down to Security and click “Open Anyway”, then confirm with your password or Touch ID.",
         .faqQ4: "The water flows to the wrong place",
         .faqA4: "The water flows to the Dock icon of the app. If the Dock is hidden or on another display, it flows to the nearest screen edge. Without Accessibility the Dock position is estimated.",
         .faqQ5: "The screen seems to freeze for a moment",
@@ -163,5 +163,7 @@ extension Strings {
         .faqA7: "It runs in the background as a service. Click the water drop in the menu bar, or open the app again from Applications to show the settings.",
         .faqQ8: "A window came back after evaporating",
         .faqA8: "The app asked something before closing, for example whether to save changes. The window then stays open so you can answer.",
+        .creditsMadeBy: "Made by %@",
+        .versionLabel: "Version %@",
     ]
 }

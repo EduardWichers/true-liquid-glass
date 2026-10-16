@@ -129,7 +129,7 @@ extension Strings {
         .faqQ2: "No pasa nada al hacer clic en el botón amarillo o rojo",
         .faqA2: "Revisa el diagnóstico de arriba. Las ventanas a pantalla completa, las repartidas entre dos pantallas, los clics con ⌘, ⌥, ⌃ o ⇧ pulsados y las apps con su propia barra de título usan la animación normal. En otras apps solo se usan los botones amarillo y rojo, no ⌘M ni ⌘W.",
         .faqQ3: "macOS dice que la app no se puede abrir",
-        .faqA3: "La app no se distribuye a través de la App Store. Haz clic derecho en la app y elige Abrir, o haz clic en “Abrir igualmente” en Ajustes del Sistema › Privacidad y seguridad.",
+        .faqA3: "La app no está notarizada por Apple. Haz clic en OK, abre Ajustes del Sistema › Privacidad y seguridad, desplázate hasta Seguridad y haz clic en “Abrir igualmente”; después confirma con tu contraseña o Touch ID.",
         .faqQ4: "El agua fluye al lugar equivocado",
         .faqA4: "El agua fluye hacia el icono de la app en el Dock. Si el Dock está oculto o en otra pantalla, fluye hacia el borde de pantalla más cercano. Sin Accesibilidad, la posición del Dock se estima.",
         .faqQ5: "La pantalla parece congelarse un momento",
@@ -162,5 +162,7 @@ extension Strings {
         .faqA7: "Funciona en segundo plano como un servicio. Haz clic en la gota de agua de la barra de menús, o vuelve a abrir la app desde Aplicaciones para ver los ajustes.",
         .faqQ8: "Una ventana volvió después de evaporarse",
         .faqA8: "La app preguntó algo antes de cerrarse, por ejemplo si querías guardar los cambios. La ventana se queda abierta para que puedas responder.",
+        .creditsMadeBy: "Creado por %@",
+        .versionLabel: "Versión %@",
     ]
 }

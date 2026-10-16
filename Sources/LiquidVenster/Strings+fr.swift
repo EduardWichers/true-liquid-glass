@@ -129,7 +129,7 @@ extension Strings {
         .faqQ2: "Rien ne se passe quand je clique sur le bouton jaune ou rouge",
         .faqA2: "Consultez le diagnostic ci-dessus. Les fenêtres en plein écran, les fenêtres réparties sur deux écrans, les clics avec ⌘, ⌥, ⌃ ou ⇧ enfoncé et les apps avec leur propre barre de titre gardent l’animation normale. Dans les autres apps, seuls les boutons jaune et rouge sont utilisés, pas ⌘M ni ⌘W.",
         .faqQ3: "macOS indique que l’app ne peut pas être ouverte",
-        .faqA3: "L’app n’est pas distribuée par l’App Store. Faites un clic droit sur l’app et choisissez Ouvrir, ou cliquez sur « Ouvrir quand même » dans Réglages Système › Confidentialité et sécurité.",
+        .faqA3: "L’app n’est pas notarisée par Apple. Cliquez sur OK, ouvrez Réglages Système › Confidentialité et sécurité, faites défiler jusqu’à Sécurité et cliquez sur « Ouvrir quand même », puis confirmez avec votre mot de passe ou Touch ID.",
         .faqQ4: "L’eau s’écoule au mauvais endroit",
         .faqA4: "L’eau s’écoule vers l’icône de l’app dans le Dock. Si le Dock est masqué ou sur un autre écran, elle s’écoule vers le bord d’écran le plus proche. Sans Accessibilité, la position du Dock est estimée.",
         .faqQ5: "L’écran semble se figer un instant",
@@ -162,5 +162,7 @@ extension Strings {
         .faqA7: "Elle fonctionne en arrière-plan comme un service. Cliquez sur la goutte d’eau dans la barre des menus, ou rouvrez l’app depuis Applications pour afficher les réglages.",
         .faqQ8: "Une fenêtre est revenue après s’être évaporée",
         .faqA8: "L’app a posé une question avant de se fermer, par exemple pour enregistrer les modifications. La fenêtre reste alors ouverte pour que vous puissiez répondre.",
+        .creditsMadeBy: "Créé par %@",
+        .versionLabel: "Version %@",
     ]
 }

@@ -59,7 +59,8 @@ enum Diagnostics {
             items.append(DiagnosticItem(id: "location", state: .ok, title: t(.diagLocationOK), detail: nil))
         } else {
             items.append(DiagnosticItem(id: "location", state: .warning, title: t(.diagLocationOther),
-                                        detail: f(.diagLocationOtherDetail, path), fixes: [.showInFinder]))
+                                        detail: f(.diagLocationOtherDetail, (path as NSString).abbreviatingWithTildeInPath),
+                                        fixes: [.showInFinder]))
         }
 
         // Signature: decides whether permissions survive updates.
@@ -79,7 +80,8 @@ enum Diagnostics {
         // Several copies can confuse permissions and launch an old version.
         if copies.count > 1 {
             items.append(DiagnosticItem(id: "copies", state: .warning, title: t(.diagCopiesMultiple),
-                                        detail: f(.diagCopiesMultipleDetail, copies.joined(separator: "\n")),
+                                        detail: f(.diagCopiesMultipleDetail,
+                                                  copies.map { ($0 as NSString).abbreviatingWithTildeInPath }.joined(separator: "\n")),
                                         fixes: [.showInFinder]))
         } else if copies.count == 1 {
             items.append(DiagnosticItem(id: "copies", state: .ok, title: t(.diagCopiesOne), detail: nil))

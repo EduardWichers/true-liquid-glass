@@ -285,9 +285,10 @@ enum SelfTest {
                     let url = folder.appendingPathComponent("\(language.rawValue).lproj/\(page).html")
                     let html = (try? String(contentsOf: url, encoding: .utf8)) ?? ""
                     if !(html.contains("<html lang=\"\(language.rawValue)\">") && html.contains("</html>") && html.count > 500) { ok = false }
+                    if page == "welcome" && !html.contains(AppInfo.author) { ok = false }
                 }
             }
-            check(ok, "installatiepagina's in alle 10 talen")
+            check(ok, "installatiepagina's in alle 10 talen, met credits")
             check(InstallerPages.escape("a<b & \"c\"") == "a&lt;b &amp; &quot;c&quot;", "HTML-tekens worden ontsnapt")
         } catch {
             check(false, "installatiepagina's: \(error.liquidDescription)")
@@ -402,7 +403,7 @@ enum SelfTest {
 
     // MARK: GPU rendering
 
-    private static func makeContext(width: Int, height: Int) -> CGContext? {
+    static func makeContext(width: Int, height: Int) -> CGContext? {
         CGContext(data: nil, width: width, height: height, bitsPerComponent: 8, bytesPerRow: 0,
                   space: WindowCapture.colorSpace,
                   bitmapInfo: CGImageAlphaInfo.premultipliedFirst.rawValue | CGBitmapInfo.byteOrder32Little.rawValue)
@@ -438,7 +439,15 @@ enum SelfTest {
     }
 
     /// A fake desktop: sky gradient, grid and a Dock with icons.
-    private static func syntheticDesktop(width: Int, height: Int, scale: CGFloat, dockIcon: CGPoint) -> CGImage? {
+    static let syntheticDockIcons = 9
+
+    /// Centre (overlay points, top-left origin) of an icon of the synthetic Dock.
+    static func syntheticDockIcon(_ index: Int, viewSize: CGSize) -> CGPoint {
+        let slot = viewSize.width * 0.5 / CGFloat(syntheticDockIcons)
+        return CGPoint(x: viewSize.width * 0.25 + slot * (CGFloat(index) + 0.5), y: viewSize.height - 4 - 32)
+    }
+
+    static func syntheticDesktop(width: Int, height: Int, scale: CGFloat, dockIcon: CGPoint) -> CGImage? {
         guard let ctx = makeContext(width: width, height: height) else { return nil }
         let colors = [CGColor(srgbRed: 0.20, green: 0.32, blue: 0.62, alpha: 1),
                       CGColor(srgbRed: 0.55, green: 0.75, blue: 0.92, alpha: 1)] as CFArray
@@ -452,20 +461,21 @@ enum SelfTest {
         var y: CGFloat = 0
         while y < CGFloat(height) { ctx.move(to: CGPoint(x: 0, y: y)); ctx.addLine(to: CGPoint(x: CGFloat(width), y: y)); y += 60 * scale }
         ctx.strokePath()
-        // Dock (CG origin is bottom-left; dockIcon is top-left based)
+        // Dock (CG origin is bottom-left). Icons are spread evenly over the Dock's width.
         let dock = CGRect(x: CGFloat(width) * 0.25, y: 4 * scale, width: CGFloat(width) * 0.5, height: 64 * scale)
         ctx.setFillColor(CGColor(srgbRed: 1, green: 1, blue: 1, alpha: 0.35))
         ctx.addPath(CGPath(roundedRect: dock, cornerWidth: 18 * scale, cornerHeight: 18 * scale, transform: nil))
         ctx.fillPath()
-        for i in 0..<9 {
-            let cx = dock.minX + (34 + CGFloat(i) * 64) * scale
-            let hue = CGFloat(i) / 9
+        let slot = dock.width / CGFloat(syntheticDockIcons)
+        let icon = min(48 * scale, slot * 0.78)
+        for i in 0..<syntheticDockIcons {
+            let cx = dock.minX + slot * (CGFloat(i) + 0.5)
+            let hue = CGFloat(i) / CGFloat(syntheticDockIcons)
             ctx.setFillColor(NSColor(hue: hue, saturation: 0.6, brightness: 0.95, alpha: 1).cgColor)
-            ctx.addPath(CGPath(roundedRect: CGRect(x: cx - 24 * scale, y: dock.midY - 24 * scale, width: 48 * scale, height: 48 * scale),
-                               cornerWidth: 11 * scale, cornerHeight: 11 * scale, transform: nil))
+            ctx.addPath(CGPath(roundedRect: CGRect(x: cx - icon / 2, y: dock.midY - icon / 2, width: icon, height: icon),
+                               cornerWidth: icon * 0.23, cornerHeight: icon * 0.23, transform: nil))
             ctx.fillPath()
         }
-        _ = dockIcon
         return ctx.makeImage()
     }
 
@@ -496,7 +506,7 @@ enum SelfTest {
         return diff
     }
 
-    private static func image(from p: PixelData) -> CGImage? {
+    static func image(from p: PixelData) -> CGImage? {
         guard let provider = CGDataProvider(data: Data(p.bytes) as CFData) else { return nil }
         return CGImage(width: p.width, height: p.height, bitsPerComponent: 8, bitsPerPixel: 32, bytesPerRow: p.bytesPerRow,
                        space: WindowCapture.colorSpace,
@@ -529,7 +539,7 @@ enum SelfTest {
         let scale: CGFloat = 2
         let view = CGSize(width: 1200, height: 800)
         let windowRect = CGRect(x: 300, y: 150, width: 400, height: 300)
-        let target = CGPoint(x: 600 - 300 + 34 + 4 * 64, y: 800 - 4 - 32)   // fifth Dock icon
+        let target = syntheticDockIcon(4, viewSize: view)   // fifth Dock icon
         guard let windowImage = syntheticWindow(width: Int(windowRect.width * scale), height: Int(windowRect.height * scale), scale: scale),
               let desktop = syntheticDesktop(width: Int(view.width * scale), height: Int(view.height * scale), scale: scale, dockIcon: target) else {
             check(false, "testbeelden maken")

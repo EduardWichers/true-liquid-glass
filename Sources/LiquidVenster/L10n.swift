@@ -4,6 +4,8 @@ import Foundation
 /// first versions so existing settings and permissions keep working.
 enum AppInfo {
     static let name = "True Liquid Glass"
+    static let author = "Eduard Wichers"
+    static let authorURL = URL(string: "https://github.com/EduardWichers")
     static let bundleIdentifier = "nl.liquidvenster.app"
 
     static var version: String {
@@ -133,6 +135,13 @@ final class Localizer: ObservableObject {
         NotificationCenter.default.post(name: .appLanguageChanged, object: self)
     }
 
+    /// Switch language for this run only, without saving it (used for screenshots).
+    func useForThisSession(_ choice: AppLanguage) {
+        override = choice
+        language = choice
+        NotificationCenter.default.post(name: .appLanguageChanged, object: self)
+    }
+
     func string(_ key: L, in language: AppLanguage? = nil) -> String {
         let chosen = language ?? self.language
         if let text = chosen.table[key], !text.isEmpty { return text }
@@ -189,6 +198,7 @@ enum L: String, CaseIterable {
     case sectionGeneral, toggleLoginItem, loginItemHint, loginItemNeedsApproval
     case diagLoginOK, diagLoginOff, diagLoginOffDetail, diagLoginApproval, fixOpenLoginItems
     case faqQ7, faqA7, faqQ8, faqA8
+    case creditsMadeBy, versionLabel
 }
 
 /// Translation tables; one file per language (Strings+xx.swift).

@@ -81,6 +81,7 @@ struct SettingsView: View {
                         effectSection
                         permissionSection
                         logSection
+                        credits
                     }
                     .padding(20)
                 }
@@ -110,6 +111,23 @@ struct SettingsView: View {
             }
             Spacer(minLength: 0)
         }
+    }
+
+    private var credits: some View {
+        HStack(spacing: 6) {
+            Spacer()
+            if let url = AppInfo.authorURL {
+                Link(tr(.creditsMadeBy, AppInfo.author), destination: url)
+            } else {
+                Text(tr(.creditsMadeBy, AppInfo.author))
+            }
+            Text("·")
+            Text(tr(.versionLabel, AppInfo.version))
+            Spacer()
+        }
+        .font(.caption)
+        .foregroundStyle(.secondary)
+        .padding(.top, 4)
     }
 
     private var statusSection: some View {

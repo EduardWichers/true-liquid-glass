@@ -42,6 +42,8 @@ final class ClickInterceptor {
     private var recentUntil: CFTimeInterval = 0
 
     var onButtonClick: ((ExternalWindowRequest) -> Void)?
+    /// Mouse events that were not swallowed (used to snap windows dragged to a screen edge).
+    var onPassiveMouse: ((CGEventType, CGPoint) -> Void)?
     /// Evaluated on every mouse-down; must be cheap (use cached values).
     var shouldIntercept: (WindowAction) -> Bool = { _ in false }
 
@@ -111,28 +113,42 @@ final class ClickInterceptor {
 
         case .leftMouseDown:
             pending = nil   // a mouse-up that never arrived must not leave us stuck
-            guard shouldIntercept(.minimize) || shouldIntercept(.close) else { return pass }
+            guard shouldIntercept(.minimize) || shouldIntercept(.close) else {
+                onPassiveMouse?(type, event.location)
+                return pass
+            }
             if CACurrentMediaTime() < recentUntil, recentButtonFrame.insetBy(dx: -4, dy: -4).contains(event.location) {
                 pending = Pending(request: nil, buttonFrame: recentButtonFrame)
                 return nil
             }
             let modifiers: CGEventFlags = [.maskCommand, .maskAlternate, .maskControl, .maskShift]
             // Option-click = "minimize all" etc.: leave special clicks to the system.
-            guard event.flags.intersection(modifiers).isEmpty else { return pass }
-            guard event.getIntegerValueField(.mouseEventClickState) <= 1 else { return pass }
+            guard event.flags.intersection(modifiers).isEmpty,
+                  event.getIntegerValueField(.mouseEventClickState) <= 1 else {
+                onPassiveMouse?(type, event.location)
+                return pass
+            }
             let started = CACurrentMediaTime()
             let hit = hitTest(event.location)
             let elapsed = (CACurrentMediaTime() - started) * 1000
             if elapsed > 100 { logWarning("Hit test took \(Int(elapsed)) ms") }
-            guard let hit else { return pass }
+            guard let hit else {
+                onPassiveMouse?(type, event.location)
+                return pass
+            }
             pending = hit
             return nil
 
         case .leftMouseDragged:
-            return pending == nil ? pass : nil
+            guard pending == nil else { return nil }
+            onPassiveMouse?(type, event.location)
+            return pass
 
         case .leftMouseUp:
-            guard let current = pending else { return pass }
+            guard let current = pending else {
+                onPassiveMouse?(type, event.location)
+                return pass
+            }
             pending = nil
             guard let request = current.request else { return nil }
             // Like a real button: releasing outside it cancels the click.

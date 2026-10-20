@@ -20,6 +20,8 @@ struct DiagnosticItem: Identifiable {
         case ignoreReduceMotion
         case enableLoginItem
         case openLoginItems
+        case quitApp(bundleID: String, name: String)
+        case openDesktopSettings
     }
 
     let id: String
@@ -155,6 +157,22 @@ enum Diagnostics {
 
         items.append(DiagnosticItem(id: "displays", state: .info, title: f(.diagDisplays, NSScreen.screens.count), detail: nil))
 
+        // Tools: other apps with the same features, shortcuts that are taken, macOS tiling.
+        for app in CompetingApp.runningConflicts(settings) {
+            items.append(DiagnosticItem(id: "conflict-\(app.rawValue)", state: .warning, title: f(.diagConflict, app.name),
+                                        detail: t(.diagConflictDetail),
+                                        fixes: [.quitApp(bundleID: app.rawValue, name: app.name)]))
+        }
+        for (owner, combos) in status.toolShortcutFailures.sorted(by: { $0.key < $1.key }) where !combos.isEmpty {
+            items.append(DiagnosticItem(id: "hotkey-\(owner)", state: .warning,
+                                        title: f(.diagHotkeyFailed, combos.joined(separator: ", ")),
+                                        detail: t(.diagHotkeyFailedDetail)))
+        }
+        if settings.snapEnabled && settings.snapDragEnabled && ToolsController.systemEdgeTilingEnabled {
+            items.append(DiagnosticItem(id: "tiling", state: .warning, title: t(.diagSystemTiling),
+                                        detail: t(.diagSystemTilingDetail), fixes: [.openDesktopSettings]))
+        }
+
         let errors = AppLog.shared.entries.filter { $0.level == .error }.count
         if errors == 0 {
             items.append(DiagnosticItem(id: "errors", state: .ok, title: t(.diagErrorsNone), detail: nil))
@@ -229,6 +247,9 @@ enum Diagnostics {
         lines.append("Settings: systemWide=\(settings.systemWideEnabled) minimize=\(settings.minimizeEffectEnabled) "
                      + "close=\(settings.closeEffectEnabled) speed=\(settings.speed) strength=\(settings.colorStrength) "
                      + "reduceMotionRespected=\(settings.respectReduceMotion)")
+        lines.append("Tools: snap=\(settings.snapEnabled) (\(settings.snapModifiers.display), drag=\(settings.snapDragEnabled)) "
+                     + "launcher=\(settings.launcherEnabled) (\(settings.launcherHotkey.combo.display)) "
+                     + "shelf=\(settings.shelfEnabled) (\(settings.shelfHotkey.combo.display), edge=\(settings.shelfEdgeReveal))")
         lines.append("")
         for item in run(settings: settings, status: status, copies: copies, language: .english) {
             lines.append("[\(item.state.rawValue)] \(item.title)" + (item.detail.map { " – \($0)" } ?? ""))

@@ -66,6 +66,14 @@ final class AppSettings: ObservableObject {
         static let reduceMotion = "respectReduceMotion"
         static let minimizeEffect = "minimizeEffectEnabled"
         static let closeEffect = "closeEffectEnabled"
+        static let snapEnabled = "snapEnabled"
+        static let snapModifiers = "snapModifiers"
+        static let snapDrag = "snapDragEnabled"
+        static let launcherEnabled = "launcherEnabled"
+        static let launcherHotkey = "launcherHotkey"
+        static let shelfEnabled = "shelfEnabled"
+        static let shelfHotkey = "shelfHotkey"
+        static let shelfEdge = "shelfEdgeReveal"
     }
 
     private let defaults: UserDefaults
@@ -108,6 +116,16 @@ final class AppSettings: ObservableObject {
         didSet { defaults.set(closeEffectEnabled, forKey: Key.closeEffect) }
     }
 
+    // Tools (like Magnet, Alfred and Dropzone).
+    @Published var snapEnabled: Bool { didSet { defaults.set(snapEnabled, forKey: Key.snapEnabled) } }
+    @Published var snapModifiers: SnapModifierPreset { didSet { defaults.set(snapModifiers.rawValue, forKey: Key.snapModifiers) } }
+    @Published var snapDragEnabled: Bool { didSet { defaults.set(snapDragEnabled, forKey: Key.snapDrag) } }
+    @Published var launcherEnabled: Bool { didSet { defaults.set(launcherEnabled, forKey: Key.launcherEnabled) } }
+    @Published var launcherHotkey: HotkeyPreset { didSet { defaults.set(launcherHotkey.rawValue, forKey: Key.launcherHotkey) } }
+    @Published var shelfEnabled: Bool { didSet { defaults.set(shelfEnabled, forKey: Key.shelfEnabled) } }
+    @Published var shelfHotkey: HotkeyPreset { didSet { defaults.set(shelfHotkey.rawValue, forKey: Key.shelfHotkey) } }
+    @Published var shelfEdgeReveal: Bool { didSet { defaults.set(shelfEdgeReveal, forKey: Key.shelfEdge) } }
+
     /// Skip the effect when "Reduce motion" is enabled in Accessibility settings.
     @Published var respectReduceMotion: Bool {
         didSet { defaults.set(respectReduceMotion, forKey: Key.reduceMotion) }
@@ -122,6 +140,11 @@ final class AppSettings: ObservableObject {
             Key.reduceMotion: true,
             Key.minimizeEffect: true,
             Key.closeEffect: true,
+            Key.snapEnabled: true,
+            Key.snapDrag: true,
+            Key.launcherEnabled: true,
+            Key.shelfEnabled: true,
+            Key.shelfEdge: true,
         ])
         systemWideEnabled = defaults.bool(forKey: Key.systemWide)
         speed = AppSettings.number(defaults, Key.speed, range: AppSettings.speedRange, fallback: 1.0)
@@ -131,6 +154,14 @@ final class AppSettings: ObservableObject {
         respectReduceMotion = defaults.bool(forKey: Key.reduceMotion)
         minimizeEffectEnabled = defaults.bool(forKey: Key.minimizeEffect)
         closeEffectEnabled = defaults.bool(forKey: Key.closeEffect)
+        snapEnabled = defaults.bool(forKey: Key.snapEnabled)
+        snapModifiers = defaults.string(forKey: Key.snapModifiers).flatMap(SnapModifierPreset.init(rawValue:)) ?? .controlOption
+        snapDragEnabled = defaults.bool(forKey: Key.snapDrag)
+        launcherEnabled = defaults.bool(forKey: Key.launcherEnabled)
+        launcherHotkey = defaults.string(forKey: Key.launcherHotkey).flatMap(HotkeyPreset.init(rawValue:)) ?? .optionSpace
+        shelfEnabled = defaults.bool(forKey: Key.shelfEnabled)
+        shelfHotkey = defaults.string(forKey: Key.shelfHotkey).flatMap(HotkeyPreset.init(rawValue:)) ?? .controlOptionSpace
+        shelfEdgeReveal = defaults.bool(forKey: Key.shelfEdge)
     }
 
     func apply(_ preset: WaterPreset) {

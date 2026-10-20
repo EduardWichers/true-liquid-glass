@@ -199,6 +199,18 @@ enum L: String, CaseIterable {
     case diagLoginOK, diagLoginOff, diagLoginOffDetail, diagLoginApproval, fixOpenLoginItems
     case faqQ7, faqA7, faqQ8, faqA8
     case creditsMadeBy, versionLabel
+    case tabTools, sectionSnap, toggleSnap, snapModifiers, toggleSnapDrag, snapHint
+    case snapLeftHalf, snapRightHalf, snapMaximize, snapRestore, snapTopHalf, snapBottomHalf
+    case snapTopLeft, snapTopRight, snapBottomLeft, snapBottomRight, snapLeftThird, snapCenterThird
+    case snapRightThird, snapLeftTwoThirds, snapRightTwoThirds, snapCenter, sectionLauncher, toggleLauncher
+    case shortcutLabel, launcherHint, openLauncher, launcherPlaceholder, launcherWebSearch, launcherCopyResult
+    case launcherApplication, launcherNoResults, launcherCommandSettings, launcherCommandShelf, sectionShelf, toggleShelf
+    case toggleShelfEdge, shelfHint, showShelf, shelfEmpty, shelfItemsCount, shelfClear
+    case shelfDestinations, shelfAddFolder, shelfRemoveFolder, shelfOpen, shelfReveal, shelfCopyClipboard
+    case shelfCopyTo, shelfMoveTo, shelfAirDrop, shelfRemove, shelfStatusCopied, shelfStatusMoved
+    case shelfStatusFailed, shortcutInUse, otherAppRunning, quitOtherApp, menuLauncher, menuShelf
+    case diagConflict, diagConflictDetail, diagHotkeyFailed, diagHotkeyFailedDetail, diagSystemTiling, diagSystemTilingDetail
+    case fixOpenDesktopSettings
 }
 
 /// Translation tables; one file per language (Strings+xx.swift).

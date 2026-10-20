@@ -99,6 +99,20 @@ enum AX {
     }
 
     @discardableResult
+    static func setPosition(_ element: AXUIElement, _ point: CGPoint) -> AXError {
+        var value = point
+        guard let axValue = AXValueCreate(.cgPoint, &value) else { return .failure }
+        return AXUIElementSetAttributeValue(element, kAXPositionAttribute as CFString, axValue)
+    }
+
+    @discardableResult
+    static func setSize(_ element: AXUIElement, _ size: CGSize) -> AXError {
+        var value = size
+        guard let axValue = AXValueCreate(.cgSize, &value) else { return .failure }
+        return AXUIElementSetAttributeValue(element, kAXSizeAttribute as CFString, axValue)
+    }
+
+    @discardableResult
     static func setTimeout(_ element: AXUIElement, seconds: Float) -> AXError {
         AXUIElementSetMessagingTimeout(element, seconds)
     }

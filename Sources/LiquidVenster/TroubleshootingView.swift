@@ -101,6 +101,12 @@ struct TroubleshootingView: View {
             LoginItem.setEnabled(true)
             status.loginItem = LoginItem.state
         case .openLoginItems: LoginItem.openSettings()
+        case .quitApp(let bundleID, _):
+            NSRunningApplication.runningApplications(withBundleIdentifier: bundleID).forEach { $0.terminate() }
+        case .openDesktopSettings:
+            if let url = URL(string: "x-apple.systempreferences:com.apple.Desktop-Settings.extension") {
+                NSWorkspace.shared.open(url)
+            }
         }
         actions.refresh()
         tick &+= 1
@@ -167,6 +173,8 @@ private struct DiagnosticRow: View {
         case .enableSystemWide, .enableLoginItem: return tr(.fixTurnOn)
         case .ignoreReduceMotion: return tr(.fixIgnoreReduceMotion)
         case .openLoginItems: return tr(.fixOpenLoginItems)
+        case .quitApp(_, let name): return tr(.quitOtherApp, name)
+        case .openDesktopSettings: return tr(.fixOpenDesktopSettings)
         }
     }
 }

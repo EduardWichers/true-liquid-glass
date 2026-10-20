@@ -3,6 +3,7 @@ import SwiftUI
 
 enum SettingsTab: Hashable {
     case settings
+    case tools
     case troubleshooting
 }
 
@@ -16,6 +17,8 @@ final class AppStatus: ObservableObject {
     @Published var rendererError: String?
     @Published var reduceMotion = false
     @Published var loginItem: LoginItem.State = .disabled
+    /// Shortcuts of the tools that could not be registered, per tool ("snap", "launcher", "shelf").
+    @Published var toolShortcutFailures: [String: [String]] = [:]
     @Published var selectedTab: SettingsTab = .settings
 
     /// Everything needed for other apps is in place.
@@ -87,6 +90,10 @@ struct SettingsView: View {
                 }
                 .tabItem { Text(tr(.tabSettings)) }
                 .tag(SettingsTab.settings)
+
+                ToolsView(settings: settings, status: status, localizer: localizer)
+                    .tabItem { Text(tr(.tabTools)) }
+                    .tag(SettingsTab.tools)
 
                 TroubleshootingView(settings: settings, status: status, log: log, localizer: localizer, actions: actions)
                     .tabItem { Text(tr(.tabTroubleshooting)) }

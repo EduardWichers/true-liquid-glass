@@ -13,6 +13,12 @@ A macOS app (macOS 14 Sonoma or newer, Apple silicon and Intel) that turns the w
 
 The water colour is up to you: pick any colour or a preset (Clear, Sea, Lagoon, Glacier, Lemonade, Raspberry, Cola), and choose how deep the colour is.
 
+It also replaces three popular helper apps, all in Apple's **Liquid Glass** style (on macOS 26 and newer; a translucent material on older versions):
+
+- **Arrange windows** (like Magnet / Windows Snap): ⌃⌥ + arrow keys for halves, maximize and restore, plus quarters, thirds and centring. You can also drag a window to a screen edge.
+- **Launcher** (like Alfred): ⌥Space opens a glass search bar for apps, files, calculations and web searches.
+- **File shelf** (like Dropzone): park files on a glass shelf, drag them off again later, or drop them on a folder to copy them there. The shelf appears by itself when you drag files to the right edge of the screen.
+
 The app runs in the background as a service: there is no Dock icon, only a water drop in the menu bar, and it starts automatically at login. It is available in **10 languages**: English, Nederlands, Deutsch, Français, Español, Português (Brasil), Italiano, Русский, 简体中文 and 日本語. By default it follows the macOS language; you can also choose one in the app.
 
 ---
@@ -38,11 +44,35 @@ The app's own test windows work without any permissions. Everything happens on y
 
 ---
 
+## Tools
+
+| Launcher (⌥Space) | File shelf (⌃⌥Space) |
+|:---:|:---:|
+| ![Launcher](docs/launcher.png) | ![File shelf](docs/shelf.png) |
+
+**Arranging windows** (the keys can be changed to ⌃⌘, ⌥⌘ or ⌃⌥⌘ under *Tools*):
+
+| Shortcut | Layout | Shortcut | Layout |
+|---|---|---|---|
+| ⌃⌥← | Left half (press again: ⅔, ⅓) | ⌃⌥→ | Right half (press again: ⅔, ⅓) |
+| ⌃⌥↑ | Maximize | ⌃⌥↓ | Restore |
+| ⌃⌥U / I | Top left / top right | ⌃⌥J / K | Bottom left / bottom right |
+| ⌃⌥D / F / G | Left / center / right third | ⌃⌥E / T | Left / right two thirds |
+| ⌃⌥C | Center | drag to an edge | half, quarter or maximize |
+
+**Launcher**: ↩ opens, ⌘↩ shows the item in Finder, Esc closes. Type a calculation such as `12×(3+4)` and ↩ copies the result.
+
+**File shelf**: drag files onto the shelf and drag them off again into any app or folder. Right-click a file for Open, Show in Finder, Copy, Copy to / Move to a folder, AirDrop and Remove. Drop files on a folder at the bottom to copy them there (hold ⌥ to move).
+
+You can quit Magnet, Alfred and Dropzone once you use these; if one of them is still running, the *Tools* tab and the troubleshooting check warn about clashing shortcuts.
+
+---
+
 ## Screenshots
 
-| Settings | Troubleshooting |
-|:---:|:---:|
-| ![Settings tab](docs/settings.png) | ![Troubleshooting tab](docs/troubleshooting.png) |
+| Settings | Tools | Troubleshooting |
+|:---:|:---:|:---:|
+| ![Settings tab](docs/settings.png) | ![Tools tab](docs/tools.png) | ![Troubleshooting tab](docs/troubleshooting.png) |
 
 ---
 
@@ -61,6 +91,9 @@ The app has a **Troubleshooting** tab (menu bar drop › *Troubleshooting…*). 
 | **A window came back after evaporating** | The app asked something before closing (e.g. "save changes?"). The window then stays open so you can answer. |
 | **The water flows to the wrong place** | The water flows to the app's Dock icon. If the Dock is hidden or on another display, it flows to the nearest screen edge. Without Accessibility the Dock position is estimated. |
 | **The screen seems to freeze for a moment** | Normal: during the animation (about 1.5 s) you see a still image of the screen. Make it faster with *Speed*. |
+| **A shortcut (⌥Space, ⌃⌥←, …) does nothing** | Another app (Magnet, Alfred, Dropzone, Rectangle …) probably uses the same shortcut. Quit that app, or choose different keys under *Tools*. Arranging windows of other apps needs Accessibility. |
+| **The launcher finds no files** | It uses Spotlight. Check that Spotlight indexing is on (System Settings › Spotlight); developer folders such as `node_modules` and library internals are skipped on purpose. |
+| **Windows snap twice when dragged to an edge** | macOS's own tiling is also on: turn off *Drag windows to screen edges to tile* (System Settings › Desktop & Dock) or *Snap a window when it is dragged to a screen edge* under *Tools*. |
 | **The app does not start at login** | Settings › General › *Start automatically at login*. If macOS asks for approval: System Settings › General › Login Items. |
 | **Still stuck?** | Troubleshooting tab › *Copy diagnostic report*, and paste the report in an issue. The log is also in Console.app (subsystem `nl.liquidvenster.app`). |
 
@@ -80,9 +113,10 @@ You only need the Xcode Command Line Tools (`xcode-select --install`), not full 
 ./build.sh --install   # also: install into /Applications (older version → Trash)
 ```
 
-- **Self-test** (159 checks, runs during every build): geometry, animation physics, real GPU frames (water and steam, light and transparent), colours, all 10 languages (complete and with matching placeholders), installer pages, diagnostics and settings.
+- **Self-test** (206 checks, runs during every build): geometry, animation physics, real GPU frames (water and steam, light and transparent), colours, all 10 languages (complete and with matching placeholders), installer pages, diagnostics, settings, window layouts, fuzzy search, the calculator and the file shelf (copy/move in a temporary folder).
   `.build/release/LiquidVenster --selftest --output /tmp/frames` also saves sample frames.
 - **README images**: `.build/release/LiquidVenster --make-screenshots docs --language en` captures the real settings window and renders `water.gif` / `steam.gif` over a synthetic desktop (nothing from your own screen).
+- **Tools demo**: `.build/release/LiquidVenster --tools-demo` arranges a test window and a Finder window it opens itself, and checks the launcher and the shelf.
 - **Live demo**: `"build/True Liquid Glass.app/Contents/MacOS/TrueLiquidGlass" --demo 3 --quit-after --verbose` minimizes a test window 3× and evaporates one.
 - **Installer**: `Scripts/make_installer.sh` builds a `.pkg` with `pkgbuild`/`productbuild`. The welcome and conclusion pages are generated by the app itself (`--installer-pages`) from the same translation tables. The package installs into `/Applications` (not relocatable), quits a running copy, moves the old "Liquid Venster.app" to the Trash and opens the app afterwards.
 - **Translations** live in `Sources/LiquidVenster/Strings+<language>.swift`; the English table is the reference.

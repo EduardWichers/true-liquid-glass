@@ -26,8 +26,40 @@ enum ScreenshotMaker {
             delegate.status.selectedTab = .troubleshooting
             try await pause(2.0)
             try save(try await capture(window, shadow: true), to: outputDirectory.appendingPathComponent("troubleshooting.png"))
+            delegate.status.selectedTab = .tools
+            try await pause(1.5)
+            try save(try await capture(window, shadow: true), to: outputDirectory.appendingPathComponent("tools.png"))
             delegate.status.selectedTab = .settings
             window.orderOut(nil)
+
+            // Launcher with a search.
+            Launcher.shared.show()
+            try await pause(0.4)
+            Launcher.shared.model.query = "saf"
+            try await pause(1.5)
+            if let panel = NSApp.windows.first(where: { $0 is GlassPanel && $0.isVisible && $0.canBecomeKey }) {
+                try save(try await capture(panel, shadow: true), to: outputDirectory.appendingPathComponent("launcher.png"))
+            }
+            Launcher.shared.hide()
+
+            // File shelf with a few example files (removed again afterwards).
+            let examples = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent("True Liquid Glass voorbeeld", isDirectory: true)
+            try? FileManager.default.createDirectory(at: examples, withIntermediateDirectories: true)
+            let names = ["Holiday.jpg", "Quote.pdf", "Notes.txt", "Presentation.key", "Budget.numbers"]
+            let files = names.map { examples.appendingPathComponent($0) }
+            for file in files { try? Data().write(to: file) }
+            let previous = FileShelf.shared.store.items.map(\.url)
+            FileShelf.shared.store.clear()
+            FileShelf.shared.store.add(files)
+            FileShelf.shared.show(near: nil)
+            try await pause(1.2)
+            if let panel = NSApp.windows.first(where: { $0 is GlassPanel && $0.isVisible && $0.frame.width == FileShelf.size.width }) {
+                try save(try await capture(panel, shadow: true), to: outputDirectory.appendingPathComponent("shelf.png"))
+            }
+            FileShelf.shared.hide()
+            FileShelf.shared.store.clear()
+            FileShelf.shared.store.add(previous)
+            try? FileManager.default.removeItem(at: examples)
 
             // A real test window as the source for the animations.
             let demo = DemoWindows.open()

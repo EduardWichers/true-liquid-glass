@@ -30,6 +30,8 @@ enum SelfTest {
         testDockAndSettings()
         testLocalization()
         MainActor.assumeIsolated { testDiagnostics() }
+        testTools()
+        MainActor.assumeIsolated { testShelf() }
         testRendering(outputDirectory: outputDirectory)
         MainActor.assumeIsolated { testOwnWindowSnapshot(outputDirectory: outputDirectory) }
         print("\n\(passed) geslaagd, \(failed) mislukt")
@@ -333,6 +335,132 @@ enum SelfTest {
         check(true, "diagnose werkt in alle talen")
         let summary = status.summary(settings: settings, language: .english).text
         check(summary.hasPrefix("Off for other apps"), "status-samenvatting in het logboek is Engels")
+    }
+
+    // MARK: Tools (Magnet / Alfred / Dropzone)
+
+    private static func testTools() {
+        print("== Gereedschap ==")
+        let v = CGRect(x: 0, y: 40, width: 1512, height: 900)   // visible frame (Dock below)
+        let current = CGRect(x: 100, y: 100, width: 800, height: 600)
+        check(SnapLayout.frame(for: .leftHalf, visible: v, current: current) == CGRect(x: 0, y: 40, width: 756, height: 900), "linkerhelft")
+        check(SnapLayout.frame(for: .rightHalf, visible: v, current: current) == CGRect(x: 756, y: 40, width: 756, height: 900), "rechterhelft")
+        check(SnapLayout.frame(for: .maximize, visible: v, current: current) == v, "maximaliseren = zichtbaar scherm")
+        check(SnapLayout.frame(for: .topLeft, visible: v, current: current) == CGRect(x: 0, y: 490, width: 756, height: 450), "kwart linksboven")
+        check(SnapLayout.frame(for: .rightTwoThirds, visible: v, current: current) == CGRect(x: 504, y: 40, width: 1008, height: 900), "rechter twee derde")
+        let centered = SnapLayout.frame(for: .center, visible: v, current: current)
+        check(centered.size == current.size && abs(centered.midX - v.midX) <= 1 && abs(centered.midY - v.midY) <= 1, "centreren houdt de grootte")
+        let huge = SnapLayout.frame(for: .center, visible: v, current: CGRect(x: 0, y: 0, width: 5000, height: 5000))
+        check(v.contains(huge), "te groot venster wordt binnen het scherm gecentreerd")
+        let half = SnapLayout.frame(for: .leftHalf, visible: v, current: current)
+        check(SnapLayout.cycled(.leftHalf, visible: v, current: half) == .leftTwoThirds, "← nogmaals: ½ → ⅔")
+        let twoThirds = SnapLayout.frame(for: .leftTwoThirds, visible: v, current: current)
+        check(SnapLayout.cycled(.leftHalf, visible: v, current: twoThirds) == .leftThird, "← nogmaals: ⅔ → ⅓")
+        let third = SnapLayout.frame(for: .leftThird, visible: v, current: current)
+        check(SnapLayout.cycled(.leftHalf, visible: v, current: third) == .leftHalf, "← nogmaals: ⅓ → ½")
+        check(SnapLayout.cycled(.leftHalf, visible: v, current: current) == .leftHalf, "eerste keer ← = ½")
+        let full = CGRect(x: 0, y: 0, width: 1512, height: 982)
+        check(SnapLayout.dragZone(cursor: CGPoint(x: 1, y: 500), screenFrame: full, visible: v) == .leftHalf, "slepen naar linkerrand → linkerhelft")
+        check(SnapLayout.dragZone(cursor: CGPoint(x: 1511, y: 930), screenFrame: full, visible: v) == .topRight, "rechterbovenhoek → kwart rechtsboven")
+        check(SnapLayout.dragZone(cursor: CGPoint(x: 700, y: 945), screenFrame: full, visible: v) == .maximize, "bovenrand → maximaliseren")
+        check(SnapLayout.dragZone(cursor: CGPoint(x: 700, y: 500), screenFrame: full, visible: v) == nil, "midden van het scherm → niets")
+
+        // Shortcuts.
+        let snapCombos = SnapKeys.ordered.compactMap { SnapKeys.combo($0, modifiers: [.control, .option]) }
+        check(snapCombos.count == SnapKeys.ordered.count && Set(snapCombos).count == snapCombos.count, "schik-sneltoetsen zijn uniek")
+        check(SnapKeys.combo(.leftHalf, modifiers: [.control, .option])?.display == "⌃⌥←", "weergave ⌃⌥←")
+        check(KeyCombo(49, [.option]).carbonModifiers == 2048 && KeyCombo(49, [.command, .shift]).carbonModifiers == 768,
+              "Carbon-modifiers kloppen")
+        check(Set(HotkeyPreset.allCases.map(\.combo)).count == HotkeyPreset.allCases.count, "sneltoetskeuzes zijn uniek")
+        let defaults = AppSettings(defaults: UserDefaults(suiteName: (NSTemporaryDirectory() as NSString).appendingPathComponent("tlg.tools.\(getpid())")) ?? .standard)
+        check(defaults.launcherHotkey.combo == KeyCombo(49, [.option]) && defaults.launcherHotkey != defaults.shelfHotkey,
+              "standaard: snelstarter ⌥Space, plank een andere sneltoets")
+        check(!Set(snapCombos).contains(defaults.launcherHotkey.combo) && !Set(snapCombos).contains(defaults.shelfHotkey.combo),
+              "geen botsing tussen schikken, snelstarter en plank")
+
+        // Launcher search.
+        let safari = FuzzyMatcher.score(query: "saf", candidate: "Safari") ?? -1
+        let other = FuzzyMatcher.score(query: "saf", candidate: "Desktop Safety Monitor") ?? -1
+        check(safari > other && other > 0, "‘saf’: Safari boven een woord-match")
+        check((FuzzyMatcher.score(query: "vsc", candidate: "Visual Studio Code") ?? 0) > 0, "initialen ‘vsc’ vinden Visual Studio Code")
+        check((FuzzyMatcher.score(query: "sfr", candidate: "Safari") ?? 0) > 0, "letters op volgorde ‘sfr’ vinden Safari")
+        check(FuzzyMatcher.score(query: "xyz", candidate: "Safari") == nil, "geen match → niets")
+        check((FuzzyMatcher.score(query: "musik", candidate: "Musik") ?? 0) >= 1000
+              && (FuzzyMatcher.score(query: "facetime", candidate: "FaceTime") ?? 0) >= 1000, "hoofdletters/accenten maken niet uit")
+
+        // Calculator.
+        func calc(_ text: String) -> Double? { Calculator.evaluate(text) }
+        check(calc("2+3*4") == 14 && calc("(2+3)*4") == 20 && calc("10/4") == 2.5, "rekenen: + * / en haakjes")
+        check(calc("2^3^2") == 512 && calc("-3+5") == 2 && calc("3,5*2") == 7, "rekenen: macht, min-teken, komma")
+        check(calc("50%") == 0.5 && calc("7%3") == 1 && calc("12×3") == 36 && calc("9÷3") == 3, "rekenen: %, ×, ÷")
+        check(calc("1/0") == nil && calc("2+") == nil && calc("abc") == nil && calc("42") == nil && calc("((2)") == nil,
+              "ongeldige sommen geven niets (geen crash)")
+        check(calc(String(repeating: "(", count: 100) + "1" + String(repeating: ")", count: 100)) == nil
+              && calc(String(repeating: "1+", count: 150) + "1") == nil, "diepe/lange invoer wordt veilig geweigerd")
+        check(Calculator.format(1234.5, locale: Locale(identifier: "nl")) == "1234,5"
+              && Calculator.format(12345.5, locale: Locale(identifier: "en")) == "12,345.5", "uitkomst in de taal van de gebruiker")
+
+        check(FileSearch.isNoise("/Users/x/Projects/site/node_modules/next/dist/x.json")
+              && FileSearch.isNoise("/Users/x/Pictures/Lightroom Library.lrlibrary/abc/previews/d4/x1yvgckbjt8251xcr1gxhpwwbcn51enu8.jpg")
+              && FileSearch.isNoise("/Users/x/Library/Caches/a.txt") && !FileSearch.isNoise("/Users/x/Documents/Safari tips.pdf"),
+              "snelstarter filtert ontwikkelmappen, caches en previews")
+        let apps = AppIndex.scan()
+        check(apps.count > 10 && apps.contains { $0.name == "Safari" || $0.name == "Finder" || $0.name.contains("Settings") },
+              "app-index vindt geïnstalleerde apps (\(apps.count))")
+        check(Set(apps.map { $0.name.lowercased() }).count == apps.count, "geen dubbele apps in de index")
+    }
+
+    @MainActor
+    private static func testShelf() {
+        print("== Bestandsplank ==")
+        let fm = FileManager.default
+        let root = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent("tlg-shelf-\(getpid())", isDirectory: true)
+        let path = (NSTemporaryDirectory() as NSString).appendingPathComponent("tlg.shelf.\(getpid())")
+        defer {
+            try? fm.removeItem(at: root)
+            try? fm.removeItem(atPath: path + ".plist")
+        }
+        do {
+            let source = root.appendingPathComponent("bron", isDirectory: true)
+            let target = root.appendingPathComponent("doel", isDirectory: true)
+            try fm.createDirectory(at: source, withIntermediateDirectories: true)
+            try fm.createDirectory(at: target, withIntermediateDirectories: true)
+            let a = source.appendingPathComponent("foto.jpg"), b = source.appendingPathComponent("notities.txt")
+            try Data("a".utf8).write(to: a)
+            try Data("b".utf8).write(to: b)
+            guard let defaults = UserDefaults(suiteName: path) else { check(false, "tijdelijke voorkeuren"); return }
+
+            let store = ShelfStore(defaults: defaults)
+            check(store.destinations.count >= 1, "standaardmappen (Bureaublad, Downloads, Documenten)")
+            store.add([a, b, a, URL(fileURLWithPath: "/bestaat/niet.txt"), URL(string: "https://example.com")!])
+            check(store.items.count == 2, "plank neemt alleen bestaande bestanden op, zonder dubbele")
+            check(ShelfStore(defaults: defaults).items.count == 2, "plank blijft bewaard na herstart")
+
+            check(store.transfer([a], to: target, move: false) && fm.fileExists(atPath: target.appendingPathComponent("foto.jpg").path)
+                  && fm.fileExists(atPath: a.path), "kopiëren naar map")
+            store.transfer([a], to: target, move: false)
+            check(fm.fileExists(atPath: target.appendingPathComponent("foto 2.jpg").path), "nooit overschrijven: ‘foto 2.jpg’")
+            check(ShelfStore.uniqueDestination(for: "map", in: target).lastPathComponent == "map", "naam zonder extensie")
+
+            check(store.transfer([b], to: target, move: true) && !fm.fileExists(atPath: b.path)
+                  && fm.fileExists(atPath: target.appendingPathComponent("notities.txt").path)
+                  && store.items.count == 1, "verplaatsen haalt het bestand ook van de plank")
+            check(!store.transfer([source.appendingPathComponent("weg.txt")], to: target, move: false)
+                  && (store.status ?? "").isEmpty == false, "mislukte kopie geeft een melding (geen crash)")
+
+            try fm.removeItem(at: a)
+            check(ShelfStore(defaults: defaults).items.isEmpty, "verdwenen bestanden verdwijnen ook van de plank")
+            store.addDestination(target)
+            store.addDestination(target)
+            check(store.destinations.filter { $0 == target }.count == 1, "map niet dubbel toevoegen")
+            store.removeDestination(target)
+            check(!store.destinations.contains(target), "map verwijderen")
+            store.clear()
+            check(store.items.isEmpty, "plank leegmaken")
+            defaults.removePersistentDomain(forName: path)
+        } catch {
+            check(false, "bestandsplank: \(error.liquidDescription)")
+        }
     }
 
     // MARK: Dock & settings

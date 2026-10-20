@@ -88,6 +88,27 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             MainActor.assumeIsolated { self?.refresh() }
         }
         LoginItem.enableOnFirstLaunchIfInstalled()
+        // Window arranging (Magnet), launcher (Alfred) and file shelf (Dropzone).
+        interceptor.onPassiveMouse = { type, location in
+            switch type {
+            case .leftMouseDown: WindowSnapper.shared.mouseDown(at: location)
+            case .leftMouseDragged: WindowSnapper.shared.mouseDragged(to: location)
+            case .leftMouseUp: WindowSnapper.shared.mouseUp(at: location)
+            default: break
+            }
+        }
+        ToolsController.shared.openSettings = { [weak self] in self?.showSettings() }
+        ToolsController.shared.start(settings: settings, status: status)
+        settings.objectWillChange
+            .debounce(for: .milliseconds(200), scheduler: DispatchQueue.main)
+            .sink { [weak self] _ in MainActor.assumeIsolated { self?.updateStatusMenu() } }
+            .store(in: &cancellables)
+        settings.$snapDragEnabled.dropFirst().sink { [weak self] _ in
+            DispatchQueue.main.async { self?.refresh() }
+        }.store(in: &cancellables)
+        settings.$snapEnabled.dropFirst().sink { [weak self] _ in
+            DispatchQueue.main.async { self?.refresh() }
+        }.store(in: &cancellables)
         refresh()
 
         if let index = arguments.firstIndex(of: "--make-screenshots") {
@@ -102,6 +123,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                 self.interceptor.stop()
                 exit(ok ? 0 : 1)
             }
+        } else if arguments.contains("--tools-demo") {
+            runToolsDemo()
         } else if let index = arguments.firstIndex(of: "--demo") {
             let cycles = (index + 1 < arguments.count ? Int(arguments[index + 1]) : nil) ?? 2
             runDemo(cycles: max(1, min(cycles, 20)), quitAfterwards: arguments.contains("--quit-after"))
@@ -149,7 +172,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         let loginItem = LoginItem.state
         if status.loginItem != loginItem { status.loginItem = loginItem }
 
-        let wantTap = settings.systemWideEnabled && accessibility
+        // The event tap serves the button effects and snapping windows dragged to a screen edge.
+        let wantTap = accessibility && (settings.systemWideEnabled || (settings.snapEnabled && settings.snapDragEnabled))
         if wantTap {
             if !interceptor.isRunning {
                 // Don't hammer tapCreate every 1.5 s when it keeps failing.
@@ -308,6 +332,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
     }
 
+    @objc func openLauncher() { Launcher.shared.show() }
+
+    @objc func openShelf() { FileShelf.shared.show(near: nil) }
+
     @objc func toggleSystemWide() {
         settings.systemWideEnabled.toggle()
     }
@@ -407,11 +435,92 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         help.target = self
         menu.addItem(help)
         menu.addItem(.separator())
+        if settings.launcherEnabled {
+            let launcher = NSMenuItem(title: "\(tr(.menuLauncher))   \(settings.launcherHotkey.combo.display)",
+                                      action: #selector(openLauncher), keyEquivalent: "")
+            launcher.target = self
+            menu.addItem(launcher)
+        }
+        if settings.shelfEnabled {
+            let shelf = NSMenuItem(title: "\(tr(.menuShelf))   \(settings.shelfHotkey.combo.display)",
+                                   action: #selector(openShelf), keyEquivalent: "")
+            shelf.target = self
+            menu.addItem(shelf)
+        }
+        menu.addItem(.separator())
         menu.addItem(NSMenuItem(title: tr(.menuQuit), action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q"))
         statusItem.menu = menu
     }
 
     // MARK: Demo / automated check
+
+    /// `--tools-demo`: arranges a test window with the shortcuts' actions and opens/closes the
+    /// launcher and shelf; exits with 0 when everything behaved.
+    private func runToolsDemo() {
+        Task { @MainActor in
+            var failures = 0
+            let window = DemoWindows.open()
+            NSApp.activate()
+            try? await Task.sleep(nanoseconds: 800_000_000)
+            guard let visible = (window.screen ?? NSScreen.main)?.visibleFrame else { exit(2) }
+            for (action, expected) in [(SnapAction.leftHalf, SnapLayout.frame(for: .leftHalf, visible: visible, current: window.frame)),
+                                       (.leftHalf, SnapLayout.frame(for: .leftTwoThirds, visible: visible, current: window.frame)),
+                                       (.topRight, SnapLayout.frame(for: .topRight, visible: visible, current: window.frame)),
+                                       (.maximize, visible.integral)] {
+                window.makeKeyAndOrderFront(nil)
+                WindowSnapper.shared.perform(action)
+                try? await Task.sleep(nanoseconds: 700_000_000)
+                let ok = SnapLayout.approximatelyEqual(window.frame, expected, tolerance: 4)
+                logInfo("Tools demo: \(action.rawValue) → \(ok ? "OK" : "FAILED (\(window.frame) ≠ \(expected))")")
+                if !ok { failures += 1 }
+            }
+            WindowSnapper.shared.perform(.restore)
+            try? await Task.sleep(nanoseconds: 700_000_000)
+            logInfo("Tools demo: restore → \(window.frame)")
+            window.close()
+
+            // Another app's window (via Accessibility): a Finder window we open ourselves.
+            if AXIsProcessTrusted(), let finder = NSRunningApplication.runningApplications(withBundleIdentifier: "com.apple.finder").first {
+                let folder = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent("TLG snap test", isDirectory: true)
+                try? FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+                NSWorkspace.shared.open(folder)
+                try? await Task.sleep(nanoseconds: 1_200_000_000)
+                finder.activate()
+                try? await Task.sleep(nanoseconds: 600_000_000)
+                let app = AXUIElementCreateApplication(finder.processIdentifier)
+                if let finderWindow = AX.element(app, kAXFocusedWindowAttribute), AX.string(finderWindow, kAXTitleAttribute) == "TLG snap test",
+                   let h = ScreenGeometry.primaryHeight(), let screen = NSScreen.main {
+                    WindowSnapper.shared.perform(.rightHalf)
+                    try? await Task.sleep(nanoseconds: 700_000_000)
+                    let expected = ScreenGeometry.quartzRect(fromCocoa: SnapLayout.frame(for: .rightHalf, visible: screen.visibleFrame, current: .zero), primaryHeight: h)
+                    let actual = AX.frame(finderWindow) ?? .zero
+                    let ok = SnapLayout.approximatelyEqual(actual, expected, tolerance: 6)
+                    logInfo("Tools demo: Finder window rightHalf → \(ok ? "OK" : "FAILED (\(actual) ≠ \(expected))")")
+                    if !ok { failures += 1 }
+                    WindowSnapper.shared.perform(.restore)
+                    try? await Task.sleep(nanoseconds: 500_000_000)
+                    if let close = AX.element(finderWindow, kAXCloseButtonAttribute) { AX.press(close) }
+                } else {
+                    logWarning("Tools demo: test Finder window not focused; skipped")
+                }
+                try? FileManager.default.removeItem(at: folder)
+            }
+            Launcher.shared.show()
+            try? await Task.sleep(nanoseconds: 500_000_000)
+            Launcher.shared.model.query = "2+3*4"
+            try? await Task.sleep(nanoseconds: 300_000_000)
+            let calc = Launcher.shared.model.results.first?.title ?? "-"
+            if calc != "= 14" { failures += 1 }
+            logInfo("Tools demo: launcher shows \(calc) for 2+3*4")
+            Launcher.shared.hide()
+            FileShelf.shared.show(near: nil)
+            try? await Task.sleep(nanoseconds: 500_000_000)
+            if !FileShelf.shared.isVisible { failures += 1 }
+            FileShelf.shared.hide()
+            logInfo("Tools demo finished: \(failures == 0 ? "all OK" : "\(failures) failure(s)")")
+            exit(failures == 0 ? 0 : 2)
+        }
+    }
 
     /// `--demo [n] [--quit-after]`: minimizes a test window n times and verifies the result.
     private func runDemo(cycles: Int, quitAfterwards: Bool) {

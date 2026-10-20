@@ -19,6 +19,8 @@ final class AppStatus: ObservableObject {
     @Published var loginItem: LoginItem.State = .disabled
     /// Shortcuts of the tools that could not be registered, per tool ("snap", "launcher", "shelf").
     @Published var toolShortcutFailures: [String: [String]] = [:]
+    /// Enabled macOS shortcuts (Spotlight, input sources) our shortcuts could clash with.
+    @Published var systemShortcuts: [KeyCombo: SystemShortcut] = [:]
     @Published var selectedTab: SettingsTab = .settings
 
     /// Everything needed for other apps is in place.

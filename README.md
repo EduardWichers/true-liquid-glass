@@ -16,8 +16,8 @@ The water colour is up to you: pick any colour or a preset (Clear, Sea, Lagoon, 
 It also replaces three popular helper apps, all in Apple's **Liquid Glass** style (on macOS 26 and newer; a translucent material on older versions):
 
 - **Arrange windows** (like Magnet / Windows Snap): ⌃⌥ + arrow keys for halves, maximize and restore, plus quarters, thirds and centring. You can also drag a window to a screen edge.
-- **Launcher** (like Alfred): ⌥Space opens a glass search bar for apps, files, calculations and web searches.
-- **File shelf** (like Dropzone): park files on a glass shelf, drag them off again later, or drop them on a folder to copy them there. The shelf appears by itself when you drag files to the right edge of the screen.
+- **Launcher**: ⌘Space opens a glass search bar for apps, files, calculations and Google searches.
+- **File shelf**: park files on a glass shelf, drag them off again later, or drop them on a folder to copy them there. The shelf appears by itself when you drag files to the right edge of the screen.
 
 The app runs in the background as a service: there is no Dock icon, only a water drop in the menu bar, and it starts automatically at login. It is available in **10 languages**: English, Nederlands, Deutsch, Français, Español, Português (Brasil), Italiano, Русский, 简体中文 and 日本語. By default it follows the macOS language; you can also choose one in the app.
 
@@ -46,7 +46,7 @@ The app's own test windows work without any permissions. Everything happens on y
 
 ## Tools
 
-| Launcher (⌥Space) | File shelf (⌃⌥Space) |
+| Launcher (⌘Space) | File shelf (⌃⌥Space) |
 |:---:|:---:|
 | ![Launcher](docs/launcher.png) | ![File shelf](docs/shelf.png) |
 
@@ -60,11 +60,13 @@ The app's own test windows work without any permissions. Everything happens on y
 | ⌃⌥D / F / G | Left / center / right third | ⌃⌥E / T | Left / right two thirds |
 | ⌃⌥C | Center | drag to an edge | half, quarter or maximize |
 
-**Launcher**: ↩ opens, ⌘↩ shows the item in Finder, Esc closes. Type a calculation such as `12×(3+4)` and ↩ copies the result.
+**Launcher**: ↩ opens, ⌘↩ shows the item in Finder, ⌥↩ searches Google for what you typed, Esc closes. Start with `g ` (for example `g weather amsterdam`) to search Google straight away; the Google row always stays visible at the bottom. Type a calculation such as `12×(3+4)` and ↩ copies the result. Nothing you type leaves your Mac until you choose to search Google.
+
+**⌘Space and Spotlight**: on first launch the launcher takes ⌘Space when Spotlight does not use it, otherwise ⌥Space. To use ⌘Space while Spotlight still has it, turn off *Show Spotlight search* in System Settings › Keyboard › Keyboard Shortcuts… › Spotlight (the *Tools* tab has a button for this) and choose ⌘Space under *Tools*.
 
 **File shelf**: drag files onto the shelf and drag them off again into any app or folder. Right-click a file for Open, Show in Finder, Copy, Copy to / Move to a folder, AirDrop and Remove. Drop files on a folder at the bottom to copy them there (hold ⌥ to move).
 
-You can quit Magnet, Alfred and Dropzone once you use these; if one of them is still running, the *Tools* tab and the troubleshooting check warn about clashing shortcuts.
+If another app with the same shortcuts (for example Magnet or Rectangle) is still running, the *Tools* tab and the troubleshooting check warn about it and offer to quit it.
 
 ---
 
@@ -91,7 +93,7 @@ The app has a **Troubleshooting** tab (menu bar drop › *Troubleshooting…*). 
 | **A window came back after evaporating** | The app asked something before closing (e.g. "save changes?"). The window then stays open so you can answer. |
 | **The water flows to the wrong place** | The water flows to the app's Dock icon. If the Dock is hidden or on another display, it flows to the nearest screen edge. Without Accessibility the Dock position is estimated. |
 | **The screen seems to freeze for a moment** | Normal: during the animation (about 1.5 s) you see a still image of the screen. Make it faster with *Speed*. |
-| **A shortcut (⌥Space, ⌃⌥←, …) does nothing** | Another app (Magnet, Alfred, Dropzone, Rectangle …) probably uses the same shortcut. Quit that app, or choose different keys under *Tools*. Arranging windows of other apps needs Accessibility. |
+| **A shortcut (⌘Space, ⌃⌥←, …) does nothing** | macOS itself (Spotlight, switching input sources) or another app (Magnet, Rectangle …) probably uses the same shortcut; the *Tools* tab says which. Quit that app, or choose different keys under *Tools*. Arranging windows of other apps needs Accessibility. |
 | **The launcher finds no files** | It uses Spotlight. Check that Spotlight indexing is on (System Settings › Spotlight); developer folders such as `node_modules` and library internals are skipped on purpose. |
 | **Windows snap twice when dragged to an edge** | macOS's own tiling is also on: turn off *Drag windows to screen edges to tile* (System Settings › Desktop & Dock) or *Snap a window when it is dragged to a screen edge* under *Tools*. |
 | **The app does not start at login** | Settings › General › *Start automatically at login*. If macOS asks for approval: System Settings › General › Login Items. |

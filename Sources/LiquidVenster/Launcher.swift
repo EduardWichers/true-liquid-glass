@@ -1,4 +1,5 @@
 import AppKit
+import Carbon.HIToolbox
 import SwiftUI
 import UniformTypeIdentifiers
 
@@ -148,6 +149,33 @@ struct LauncherItem: Identifiable {
     let title: String
     let subtitle: String
     let score: Double
+
+    var isWeb: Bool {
+        if case .web = kind { return true }
+        return false
+    }
+}
+
+/// Searching Google: the query only leaves the Mac when the user picks the Google row.
+enum WebSearch {
+    /// "https://www.google.com/search?q=…", with everything except unreserved ASCII percent-encoded
+    /// (so "c++" stays "c++" instead of becoming "c  ").
+    static func googleURL(for text: String) -> URL? {
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        let unreserved = CharacterSet(charactersIn: "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-._~")
+        guard !trimmed.isEmpty, trimmed.count <= 2000,
+              let encoded = trimmed.addingPercentEncoding(withAllowedCharacters: unreserved) else { return nil }
+        return URL(string: "https://www.google.com/search?q=" + encoded)
+    }
+
+    /// "g weather" or "google weather" searches Google straight away; returns the search text.
+    static func prefixedQuery(_ text: String) -> String? {
+        for prefix in ["g ", "google "] where text.lowercased().hasPrefix(prefix) {
+            let rest = text.dropFirst(prefix.count).trimmingCharacters(in: .whitespaces)
+            return rest.isEmpty ? nil : rest
+        }
+        return nil
+    }
 }
 
 /// Index of installed applications, refreshed in the background.
@@ -292,6 +320,10 @@ final class LauncherModel: ObservableObject {
     var onClose: () -> Void = {}
     var openSettings: () -> Void = {}
     var openShelf: () -> Void = {}
+    /// Opens web links; replaced by the tools demo so it does not open a browser.
+    var openURL: (URL) -> Void = { url in
+        if !NSWorkspace.shared.open(url) { logError("Launcher: could not open \(url.host ?? "the browser")") }
+    }
 
     init() {
         usage = UserDefaults.standard.dictionary(forKey: usageKey) as? [String: Int] ?? [:]
@@ -309,6 +341,10 @@ final class LauncherModel: ObservableObject {
         fileWork?.cancel()
         files.stop()
         guard !text.isEmpty else { results = []; return }
+        if let googleQuery = WebSearch.prefixedQuery(text) {
+            results = [googleItem(googleQuery)]
+            return
+        }
 
         var items: [LauncherItem] = []
         if let value = Calculator.evaluate(text) {
@@ -332,8 +368,7 @@ final class LauncherModel: ObservableObject {
         }
         items.sort { $0.score > $1.score }
         items = Array(items.prefix(8))
-        items.append(LauncherItem(id: "web", kind: .web(text), title: tr(.launcherWebSearch, text),
-                                  subtitle: "google.com", score: -1))
+        items.append(googleItem(text))   // always last: the view pins it below the list
         results = items
 
         // Files arrive a moment later (Spotlight), debounced while typing.
@@ -347,13 +382,28 @@ final class LauncherModel: ObservableObject {
                                  score: 0)
                 }
                 var merged = self.results
-                let webIndex = merged.firstIndex { if case .web = $0.kind { return true }; return false } ?? merged.count
+                let webIndex = merged.firstIndex(where: \.isWeb) ?? merged.count
                 merged.insert(contentsOf: fileItems, at: webIndex)
                 self.results = merged
             }
         }
         fileWork = work
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.18, execute: work)
+    }
+
+    private func googleItem(_ text: String) -> LauncherItem {
+        LauncherItem(id: "web", kind: .web(text), title: tr(.launcherWebSearch, text), subtitle: "google.com  ·  ⌥↩", score: -1)
+    }
+
+    /// ⌥↩: search Google for what was typed, whatever row is selected.
+    func searchGoogle() {
+        let text = results.last.flatMap { item -> String? in
+            if case .web(let text) = item.kind { return text }
+            return nil
+        } ?? query
+        guard let url = WebSearch.googleURL(for: text) else { return }
+        openURL(url)
+        onClose()
     }
 
     func moveSelection(_ delta: Int) {
@@ -382,9 +432,7 @@ final class LauncherModel: ObservableObject {
             NSPasteboard.general.clearContents()
             NSPasteboard.general.setString(result, forType: .string)
         case .web(let text):
-            var components = URLComponents(string: "https://www.google.com/search")
-            components?.queryItems = [URLQueryItem(name: "q", value: text)]
-            if let url = components?.url { NSWorkspace.shared.open(url) }
+            if let url = WebSearch.googleURL(for: text) { openURL(url) }
         case .command(let action):
             action()
         }
@@ -395,7 +443,7 @@ final class LauncherModel: ObservableObject {
         switch item.kind {
         case .app(let url), .file(let url): return NSWorkspace.shared.icon(forFile: url.path)
         case .calculation: return NSImage(systemSymbolName: "equal.circle.fill", accessibilityDescription: nil) ?? NSImage()
-        case .web: return NSImage(systemSymbolName: "globe", accessibilityDescription: nil) ?? NSImage()
+        case .web: return NSImage(systemSymbolName: "magnifyingglass.circle.fill", accessibilityDescription: nil) ?? NSImage()
         case .command: return NSImage(systemSymbolName: "drop.fill", accessibilityDescription: nil) ?? NSImage()
         }
     }
@@ -410,6 +458,7 @@ final class Launcher {
     let model = LauncherModel()
     private var panel: GlassPanel?
     private var resignObserver: NSObjectProtocol?
+    private var keyMonitor: Any?
 
     var isVisible: Bool { panel?.isVisible ?? false }
 
@@ -444,7 +493,43 @@ final class Launcher {
                                                                 object: panel, queue: .main) { [weak self] _ in
             MainActor.assumeIsolated { self?.hide() }
         }
+        keyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
+            let handled = MainActor.assumeIsolated { self?.handleKey(event) ?? false }
+            return handled ? nil : event
+        }
         return panel
+    }
+
+    /// For the tools demo: sends a key press to the launcher through the normal event queue.
+    func postTestKey(_ keyCode: Int, modifiers: NSEvent.ModifierFlags = []) {
+        guard let panel else { return }
+        let characters = keyCode == kVK_Return ? "\r" : keyCode == kVK_DownArrow ? "\u{F701}" : ""
+        guard let event = NSEvent.keyEvent(with: .keyDown, location: .zero, modifierFlags: modifiers,
+                                           timestamp: ProcessInfo.processInfo.systemUptime, windowNumber: panel.windowNumber,
+                                           context: nil, characters: characters, charactersIgnoringModifiers: characters,
+                                           isARepeat: false, keyCode: UInt16(keyCode)) else { return }
+        NSApp.postEvent(event, atStart: false)
+    }
+
+    /// ↑ ↓ choose, ↩ opens, ⌘↩ shows in Finder, ⌥↩ searches Google, Esc closes.
+    func handleKey(_ event: NSEvent) -> Bool {
+        guard let panel, panel.isVisible, event.window === panel else { return false }
+        // Leave keys alone while an input method (Japanese, Chinese …) is composing text.
+        if let editor = panel.firstResponder as? NSTextView, editor.hasMarkedText() { return false }
+        let modifiers = event.modifierFlags.intersection([.command, .option, .control, .shift])
+        switch Int(event.keyCode) {
+        case kVK_DownArrow: model.moveSelection(1)
+        case kVK_UpArrow: model.moveSelection(-1)
+        case kVK_Escape: hide()
+        case kVK_Return, kVK_ANSI_KeypadEnter:
+            if modifiers.contains(.option) {
+                model.searchGoogle()
+            } else {
+                model.activate(revealInFinder: modifiers.contains(.command))
+            }
+        default: return false
+        }
+        return true
     }
 }
 
@@ -463,43 +548,51 @@ private struct LauncherView: View {
                     .textFieldStyle(.plain)
                     .font(.system(size: 26, weight: .regular))
                     .focused($focused)
-                    .onSubmit { model.activate() }
             }
             .padding(.horizontal, 20)
             .frame(height: 64)
             .liquidGlass(cornerRadius: 22)
 
             if !model.results.isEmpty {
-                ScrollViewReader { proxy in
-                    ScrollView {
-                        VStack(spacing: 2) {
-                            ForEach(Array(model.results.enumerated()), id: \.element.id) { index, item in
-                                row(item, selected: index == model.selection)
-                                    .id(index)
-                                    .onTapGesture {
-                                        model.selection = index
-                                        model.activate()
+                // Apps, files and calculations scroll; the Google row stays visible below them.
+                let local = model.results.filter { !$0.isWeb }
+                VStack(spacing: 0) {
+                    if !local.isEmpty {
+                        ScrollViewReader { proxy in
+                            ScrollView {
+                                VStack(spacing: 2) {
+                                    ForEach(Array(local.enumerated()), id: \.element.id) { index, item in
+                                        row(item, selected: index == model.selection)
+                                            .id(index)
+                                            .onTapGesture { choose(index) }
                                     }
+                                }
+                                .padding(8)
+                            }
+                            .frame(height: min(CGFloat(local.count) * 50 + 16, 266))
+                            .onChange(of: model.selection) {
+                                if model.selection < local.count { proxy.scrollTo(model.selection, anchor: .center) }
                             }
                         }
-                        .padding(8)
+                        Divider().padding(.horizontal, 16)
                     }
-                    .frame(height: min(CGFloat(model.results.count) * 50 + 16, 330))
-                    .liquidGlass(cornerRadius: 22)
-                    .onChange(of: model.selection) { proxy.scrollTo(model.selection, anchor: .center) }
+                    if let web = model.results.last, web.isWeb {
+                        row(web, selected: model.selection == model.results.count - 1)
+                            .onTapGesture { choose(model.results.count - 1) }
+                            .padding(8)
+                    }
                 }
+                .liquidGlass(cornerRadius: 22)
             }
             Spacer(minLength: 0)
         }
         .padding(6)
         .onAppear { focused = true }
-        .onKeyPress(.downArrow) { model.moveSelection(1); return .handled }
-        .onKeyPress(.upArrow) { model.moveSelection(-1); return .handled }
-        .onKeyPress(.escape) { model.onClose(); return .handled }
-        .onKeyPress(.return, phases: .down) { press in
-            model.activate(revealInFinder: press.modifiers.contains(.command))
-            return .handled
-        }
+    }
+
+    private func choose(_ index: Int) {
+        model.selection = index
+        model.activate()
     }
 
     private func row(_ item: LauncherItem, selected: Bool) -> some View {

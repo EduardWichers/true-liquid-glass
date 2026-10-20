@@ -22,6 +22,7 @@ extension View {
 /// It never activates the app; panels that need typing can still become key.
 final class GlassPanel: NSPanel {
     private let allowsKey: Bool
+    private var fadeGeneration = 0
 
     init(size: NSSize, canBecomeKey: Bool, level: NSWindow.Level = .floating) {
         allowsKey = canBecomeKey
@@ -56,6 +57,7 @@ final class GlassPanel: NSPanel {
     }
 
     func fadeIn() {
+        fadeGeneration += 1
         alphaValue = 0
         orderFrontRegardless()
         NSAnimationContext.runAnimationGroup { context in
@@ -64,14 +66,22 @@ final class GlassPanel: NSPanel {
         }
     }
 
+    /// Fades out, then orders out. A timer finishes the job instead of the animation's completion
+    /// handler (which can arrive seconds late in a background app), and a newer fadeIn cancels it.
     func fadeOut(completion: (() -> Void)? = nil) {
-        NSAnimationContext.runAnimationGroup({ context in
+        fadeGeneration += 1
+        let generation = fadeGeneration
+        NSAnimationContext.runAnimationGroup { context in
             context.duration = 0.14
             animator().alphaValue = 0
-        }, completionHandler: { [weak self] in
-            self?.orderOut(nil)
-            self?.alphaValue = 1
-            completion?()
-        })
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.16) { [weak self] in
+            MainActor.assumeIsolated {
+                guard let self, self.fadeGeneration == generation else { return }
+                self.orderOut(nil)
+                self.alphaValue = 1
+                completion?()
+            }
+        }
     }
 }

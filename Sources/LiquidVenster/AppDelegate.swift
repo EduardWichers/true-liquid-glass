@@ -1,4 +1,5 @@
 import AppKit
+import Carbon.HIToolbox
 import Combine
 import SwiftUI
 
@@ -88,7 +89,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             MainActor.assumeIsolated { self?.refresh() }
         }
         LoginItem.enableOnFirstLaunchIfInstalled()
-        // Window arranging (Magnet), launcher (Alfred) and file shelf (Dropzone).
+        // Window arranging, launcher and file shelf.
         interceptor.onPassiveMouse = { type, location in
             switch type {
             case .leftMouseDown: WindowSnapper.shared.mouseDown(at: location)
@@ -463,20 +464,27 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             NSApp.activate()
             try? await Task.sleep(nanoseconds: 800_000_000)
             guard let visible = (window.screen ?? NSScreen.main)?.visibleFrame else { exit(2) }
-            for (action, expected) in [(SnapAction.leftHalf, SnapLayout.frame(for: .leftHalf, visible: visible, current: window.frame)),
-                                       (.leftHalf, SnapLayout.frame(for: .leftTwoThirds, visible: visible, current: window.frame)),
-                                       (.topRight, SnapLayout.frame(for: .topRight, visible: visible, current: window.frame)),
-                                       (.maximize, visible.integral)] {
-                window.makeKeyAndOrderFront(nil)
-                WindowSnapper.shared.perform(action)
+            // Only while this app is frontmost: otherwise the snapper would act on the user's own window.
+            func weAreFrontmost() -> Bool { NSWorkspace.shared.frontmostApplication?.processIdentifier == getpid() }
+            if weAreFrontmost() {
+                for (action, expected) in [(SnapAction.leftHalf, SnapLayout.frame(for: .leftHalf, visible: visible, current: window.frame)),
+                                           (.leftHalf, SnapLayout.frame(for: .leftTwoThirds, visible: visible, current: window.frame)),
+                                           (.topRight, SnapLayout.frame(for: .topRight, visible: visible, current: window.frame)),
+                                           (.maximize, visible.integral)] {
+                    window.makeKeyAndOrderFront(nil)
+                    guard weAreFrontmost() else { logWarning("Tools demo: another app came to the front; stopped arranging"); break }
+                    WindowSnapper.shared.perform(action)
+                    try? await Task.sleep(nanoseconds: 700_000_000)
+                    let ok = SnapLayout.approximatelyEqual(window.frame, expected, tolerance: 4)
+                    logInfo("Tools demo: \(action.rawValue) → \(ok ? "OK" : "FAILED (\(window.frame) ≠ \(expected))")")
+                    if !ok { failures += 1 }
+                }
+                if weAreFrontmost() { WindowSnapper.shared.perform(.restore) }
                 try? await Task.sleep(nanoseconds: 700_000_000)
-                let ok = SnapLayout.approximatelyEqual(window.frame, expected, tolerance: 4)
-                logInfo("Tools demo: \(action.rawValue) → \(ok ? "OK" : "FAILED (\(window.frame) ≠ \(expected))")")
-                if !ok { failures += 1 }
+                logInfo("Tools demo: restore → \(window.frame)")
+            } else {
+                logWarning("Tools demo: could not come to the front (another app is in use); arranging own window skipped")
             }
-            WindowSnapper.shared.perform(.restore)
-            try? await Task.sleep(nanoseconds: 700_000_000)
-            logInfo("Tools demo: restore → \(window.frame)")
             window.close()
 
             // Another app's window (via Accessibility): a Finder window we open ourselves.
@@ -502,6 +510,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                     if let close = AX.element(finderWindow, kAXCloseButtonAttribute) { AX.press(close) }
                 } else {
                     logWarning("Tools demo: test Finder window not focused; skipped")
+                    // Close our test window anyway.
+                    for candidate in AX.children(app) where AX.string(candidate, kAXTitleAttribute) == "TLG snap test" {
+                        if let close = AX.element(candidate, kAXCloseButtonAttribute) { AX.press(close) }
+                    }
                 }
                 try? FileManager.default.removeItem(at: folder)
             }
@@ -512,7 +524,25 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             let calc = Launcher.shared.model.results.first?.title ?? "-"
             if calc != "= 14" { failures += 1 }
             logInfo("Tools demo: launcher shows \(calc) for 2+3*4")
+            // Keyboard: ↓ to the Google row, ⌥↩ searches Google (captured here, no browser is opened).
+            var googled: URL?
+            Launcher.shared.model.openURL = { googled = $0 }
+            Launcher.shared.postTestKey(kVK_DownArrow)
+            try? await Task.sleep(nanoseconds: 300_000_000)
+            let model = Launcher.shared.model
+            let onGoogleRow = model.results.indices.contains(model.selection) && model.results[model.selection].isWeb
+            Launcher.shared.postTestKey(kVK_Return, modifiers: .option)
+            for _ in 0..<20 where Launcher.shared.isVisible || googled == nil {
+                try? await Task.sleep(nanoseconds: 100_000_000)
+            }
+            let googleOK = googled?.absoluteString == "https://www.google.com/search?q=2%2B3%2A4" && !Launcher.shared.isVisible
+            if !onGoogleRow || !googleOK { failures += 1 }
+            logInfo("Tools demo: ↓ selects the Google row \(onGoogleRow ? "OK" : "FAILED"), ⌥↩ → \(googled?.absoluteString ?? "nothing") \(googleOK ? "OK" : "FAILED")")
             Launcher.shared.hide()
+            let launcherShortcut = settings.launcherHotkey.combo
+            let registered = HotKeyCenter.shared.registeredCombos(owner: "launcher").contains(launcherShortcut)
+            let reservedBy = status.systemShortcuts[launcherShortcut].map { "\($0)" } ?? "none"
+            logInfo("Tools demo: launcher shortcut \(launcherShortcut.display) registered=\(registered), macOS clash=\(reservedBy)")
             FileShelf.shared.show(near: nil)
             try? await Task.sleep(nanoseconds: 500_000_000)
             if !FileShelf.shared.isVisible { failures += 1 }

@@ -50,10 +50,14 @@ final class ToolsController {
 
     private var cancellable: AnyCancellable?
     private weak var status: AppStatus?
+    private weak var settings: AppSettings?
+    private var systemShortcutTimer: Timer?
     var openSettings: () -> Void = {}
 
     func start(settings: AppSettings, status: AppStatus) {
         self.status = status
+        self.settings = settings
+        status.systemShortcuts = SystemShortcuts.current()
         Launcher.shared.model.openSettings = { [weak self] in self?.openSettings() }
         Launcher.shared.model.openShelf = { FileShelf.shared.show(near: nil) }
         apply(settings)
@@ -63,6 +67,19 @@ final class ToolsController {
                 guard let settings else { return }
                 MainActor.assumeIsolated { self?.apply(settings) }
             }
+        systemShortcutTimer = Timer.scheduledTimer(withTimeInterval: 3, repeats: true) { [weak self] _ in
+            MainActor.assumeIsolated { self?.checkSystemShortcuts() }
+        }
+    }
+
+    /// When the user frees a shortcut in System Settings (e.g. Spotlight's ⌘Space), register ours again.
+    func checkSystemShortcuts() {
+        guard let status, let settings else { return }
+        let current = SystemShortcuts.current()
+        guard current != status.systemShortcuts else { return }
+        logInfo("macOS shortcuts changed: \(current.keys.map(\.display).sorted().joined(separator: ", "))")
+        status.systemShortcuts = current
+        apply(settings)
     }
 
     func apply(_ settings: AppSettings) {
@@ -152,6 +169,7 @@ struct ToolsView: View {
                     Toggle(tr(.toggleLauncher), isOn: $settings.launcherEnabled)
                     shortcutPicker(selection: $settings.launcherHotkey).disabled(!settings.launcherEnabled)
                     failure(owner: "launcher")
+                    if settings.launcherEnabled { systemClash(settings.launcherHotkey) }
                     Button(tr(.openLauncher)) { Launcher.shared.show() }.disabled(!settings.launcherEnabled)
                     Text(tr(.launcherHint)).font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
                 }
@@ -160,6 +178,7 @@ struct ToolsView: View {
                     Toggle(tr(.toggleShelf), isOn: $settings.shelfEnabled)
                     shortcutPicker(selection: $settings.shelfHotkey).disabled(!settings.shelfEnabled)
                     failure(owner: "shelf")
+                    if settings.shelfEnabled { systemClash(settings.shelfHotkey) }
                     Toggle(tr(.toggleShelfEdge), isOn: $settings.shelfEdgeReveal).disabled(!settings.shelfEnabled)
                     Button(tr(.showShelf)) { FileShelf.shared.show(near: nil) }.disabled(!settings.shelfEnabled)
                     Text(tr(.shelfHint)).font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
@@ -172,6 +191,21 @@ struct ToolsView: View {
 
     private func refreshConflicts() {
         conflicts = CompetingApp.runningConflicts(settings)
+        ToolsController.shared.checkSystemShortcuts()
+    }
+
+    @ViewBuilder
+    private func systemClash(_ preset: HotkeyPreset) -> some View {
+        if let shortcut = status.systemShortcuts[preset.combo] {
+            VStack(alignment: .leading, spacing: 6) {
+                Label(tr(.systemShortcutClash, preset.combo.display, tr(shortcut.label)), systemImage: "exclamationmark.circle.fill")
+                    .foregroundStyle(.orange)
+                Text(tr(.systemShortcutClashDetail)).foregroundStyle(.secondary)
+                Button(tr(.fixOpenKeyboardSettings)) { SystemShortcuts.openSettings() }.controlSize(.small)
+            }
+            .font(.caption)
+            .fixedSize(horizontal: false, vertical: true)
+        }
     }
 
     private func card<Content: View>(icon: String, title: L, @ViewBuilder content: () -> Content) -> some View {

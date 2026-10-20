@@ -107,6 +107,7 @@ struct TroubleshootingView: View {
             if let url = URL(string: "x-apple.systempreferences:com.apple.Desktop-Settings.extension") {
                 NSWorkspace.shared.open(url)
             }
+        case .openKeyboardSettings: SystemShortcuts.openSettings()
         }
         actions.refresh()
         tick &+= 1
@@ -175,6 +176,7 @@ private struct DiagnosticRow: View {
         case .openLoginItems: return tr(.fixOpenLoginItems)
         case .quitApp(_, let name): return tr(.quitOtherApp, name)
         case .openDesktopSettings: return tr(.fixOpenDesktopSettings)
+        case .openKeyboardSettings: return tr(.fixOpenKeyboardSettings)
         }
     }
 }

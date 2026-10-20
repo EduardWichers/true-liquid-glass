@@ -116,7 +116,7 @@ final class AppSettings: ObservableObject {
         didSet { defaults.set(closeEffectEnabled, forKey: Key.closeEffect) }
     }
 
-    // Tools (like Magnet, Alfred and Dropzone).
+    // Tools: arranging windows, launcher and file shelf.
     @Published var snapEnabled: Bool { didSet { defaults.set(snapEnabled, forKey: Key.snapEnabled) } }
     @Published var snapModifiers: SnapModifierPreset { didSet { defaults.set(snapModifiers.rawValue, forKey: Key.snapModifiers) } }
     @Published var snapDragEnabled: Bool { didSet { defaults.set(snapDragEnabled, forKey: Key.snapDrag) } }
@@ -158,9 +158,17 @@ final class AppSettings: ObservableObject {
         snapModifiers = defaults.string(forKey: Key.snapModifiers).flatMap(SnapModifierPreset.init(rawValue:)) ?? .controlOption
         snapDragEnabled = defaults.bool(forKey: Key.snapDrag)
         launcherEnabled = defaults.bool(forKey: Key.launcherEnabled)
-        launcherHotkey = defaults.string(forKey: Key.launcherHotkey).flatMap(HotkeyPreset.init(rawValue:)) ?? .optionSpace
+        // First launch: pick shortcuts macOS does not use (⌘Space when Spotlight's is off) and keep them.
+        let reserved = Set(SystemShortcuts.current().keys)
+        let launcher = defaults.string(forKey: Key.launcherHotkey).flatMap(HotkeyPreset.init(rawValue:))
+            ?? HotkeyPreset.firstFree(HotkeyPreset.launcherOrder, taken: reserved)
+        let shelf = defaults.string(forKey: Key.shelfHotkey).flatMap(HotkeyPreset.init(rawValue:))
+            ?? HotkeyPreset.firstFree(HotkeyPreset.shelfOrder, taken: reserved.union([launcher.combo]))
+        defaults.set(launcher.rawValue, forKey: Key.launcherHotkey)
+        defaults.set(shelf.rawValue, forKey: Key.shelfHotkey)
+        launcherHotkey = launcher
         shelfEnabled = defaults.bool(forKey: Key.shelfEnabled)
-        shelfHotkey = defaults.string(forKey: Key.shelfHotkey).flatMap(HotkeyPreset.init(rawValue:)) ?? .controlOptionSpace
+        shelfHotkey = shelf
         shelfEdgeReveal = defaults.bool(forKey: Key.shelfEdge)
     }
 

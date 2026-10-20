@@ -155,7 +155,7 @@ final class FileShelf {
         panel.fadeOut()
     }
 
-    /// Shows the shelf when files are dragged to the right edge of a screen (like Dropzone/Yoink).
+    /// Shows the shelf when files are dragged to the right edge of a screen.
     func setEdgeRevealEnabled(_ enabled: Bool) {
         if let dragMonitor { NSEvent.removeMonitor(dragMonitor) }
         if let upMonitor { NSEvent.removeMonitor(upMonitor) }

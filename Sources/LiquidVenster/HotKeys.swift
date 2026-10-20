@@ -64,18 +64,99 @@ struct KeyCombo: Hashable {
 
 /// Shortcut choices offered for the launcher and the file shelf.
 enum HotkeyPreset: String, CaseIterable, Identifiable {
-    case optionSpace, controlSpace, controlOptionSpace, optionShiftSpace, shiftCommandSpace, controlOptionCommandD
+    case commandSpace, optionSpace, controlSpace, controlOptionSpace, optionShiftSpace, shiftCommandSpace, controlOptionCommandD
 
     var id: String { rawValue }
 
     var combo: KeyCombo {
         switch self {
+        case .commandSpace: return KeyCombo(kVK_Space, [.command])
         case .optionSpace: return KeyCombo(kVK_Space, [.option])
         case .controlSpace: return KeyCombo(kVK_Space, [.control])
         case .controlOptionSpace: return KeyCombo(kVK_Space, [.control, .option])
         case .optionShiftSpace: return KeyCombo(kVK_Space, [.option, .shift])
         case .shiftCommandSpace: return KeyCombo(kVK_Space, [.shift, .command])
         case .controlOptionCommandD: return KeyCombo(kVK_ANSI_D, [.control, .option, .command])
+        }
+    }
+
+    /// Preferred defaults, best first: ⌘Space for the launcher when Spotlight does not use it.
+    static let launcherOrder: [HotkeyPreset] = [.commandSpace, .optionSpace, .optionShiftSpace, .shiftCommandSpace, .controlOptionCommandD]
+    static let shelfOrder: [HotkeyPreset] = [.controlOptionSpace, .optionShiftSpace, .shiftCommandSpace, .controlOptionCommandD]
+
+    /// The first preset in `order` that macOS (or the other tool) does not already use.
+    static func firstFree(_ order: [HotkeyPreset], taken: Set<KeyCombo>) -> HotkeyPreset {
+        order.first { !taken.contains($0.combo) } ?? order[0]
+    }
+}
+
+/// Shortcuts that macOS itself reserves (System Settings › Keyboard › Keyboard Shortcuts…).
+/// They win over RegisterEventHotKey, so a clash means our shortcut silently does nothing.
+enum SystemShortcut: Int, CaseIterable {
+    case previousInputSource = 60, nextInputSource = 61, spotlight = 64, finderSearch = 65
+
+    var label: L {
+        switch self {
+        case .previousInputSource, .nextInputSource: return .sysInputSource
+        case .spotlight: return .sysSpotlight
+        case .finderSearch: return .sysFinderSearch
+        }
+    }
+
+    /// The macOS default, used when the entry is missing from the preferences.
+    var defaultCombo: KeyCombo {
+        switch self {
+        case .previousInputSource: return KeyCombo(kVK_Space, [.control])
+        case .nextInputSource: return KeyCombo(kVK_Space, [.control, .option])
+        case .spotlight: return KeyCombo(kVK_Space, [.command])
+        case .finderSearch: return KeyCombo(kVK_Space, [.option, .command])
+        }
+    }
+}
+
+enum SystemShortcuts {
+    /// The enabled system shortcuts we could clash with, read from com.apple.symbolichotkeys.
+    static func current() -> [KeyCombo: SystemShortcut] {
+        let domain = "com.apple.symbolichotkeys" as CFString
+        CFPreferencesAppSynchronize(domain)
+        let hotkeys = CFPreferencesCopyAppValue("AppleSymbolicHotKeys" as CFString, domain) as? [String: Any]
+        return reserved(from: hotkeys, keyboardInputSources: keyboardInputSourceCount)
+    }
+
+    /// Pure parser (self-tested). Switching input sources only matters with more than one source.
+    static func reserved(from hotkeys: [String: Any]?, keyboardInputSources: Int) -> [KeyCombo: SystemShortcut] {
+        var result: [KeyCombo: SystemShortcut] = [:]
+        for shortcut in SystemShortcut.allCases {
+            if (shortcut == .previousInputSource || shortcut == .nextInputSource) && keyboardInputSources < 2 { continue }
+            guard let entry = hotkeys?[String(shortcut.rawValue)] as? [String: Any] else {
+                result[shortcut.defaultCombo] = shortcut
+                continue
+            }
+            if let enabled = entry["enabled"] as? NSNumber, !enabled.boolValue { continue }
+            guard let value = entry["value"] as? [String: Any],
+                  let parameters = value["parameters"] as? [NSNumber], parameters.count >= 3 else {
+                result[shortcut.defaultCombo] = shortcut
+                continue
+            }
+            let keyCode = parameters[1].intValue
+            guard keyCode != 65535 else { continue }   // no key assigned
+            let flags = NSEvent.ModifierFlags(rawValue: UInt(truncatingIfNeeded: parameters[2].intValue))
+            result[KeyCombo(keyCode, flags)] = shortcut
+        }
+        return result
+    }
+
+    /// Keyboard layouts and input methods the user can switch between.
+    static var keyboardInputSourceCount: Int {
+        let filter = [kTISPropertyInputSourceCategory as String: kTISCategoryKeyboardInputSource as String,
+                      kTISPropertyInputSourceIsSelectCapable as String: true] as CFDictionary
+        guard let list = TISCreateInputSourceList(filter, false)?.takeRetainedValue() as? [TISInputSource] else { return 1 }
+        return list.count
+    }
+
+    static func openSettings() {
+        if let url = URL(string: "x-apple.systempreferences:com.apple.Keyboard-Settings.extension") {
+            NSWorkspace.shared.open(url)
         }
     }
 }

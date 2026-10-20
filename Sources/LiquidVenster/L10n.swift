@@ -211,6 +211,7 @@ enum L: String, CaseIterable {
     case shelfStatusFailed, shortcutInUse, otherAppRunning, quitOtherApp, menuLauncher, menuShelf
     case diagConflict, diagConflictDetail, diagHotkeyFailed, diagHotkeyFailedDetail, diagSystemTiling, diagSystemTilingDetail
     case fixOpenDesktopSettings
+    case sysSpotlight, sysFinderSearch, sysInputSource, systemShortcutClash, systemShortcutClashDetail, fixOpenKeyboardSettings
 }
 
 /// Translation tables; one file per language (Strings+xx.swift).

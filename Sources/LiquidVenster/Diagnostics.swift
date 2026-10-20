@@ -22,6 +22,7 @@ struct DiagnosticItem: Identifiable {
         case openLoginItems
         case quitApp(bundleID: String, name: String)
         case openDesktopSettings
+        case openKeyboardSettings
     }
 
     let id: String
@@ -167,6 +168,14 @@ enum Diagnostics {
             items.append(DiagnosticItem(id: "hotkey-\(owner)", state: .warning,
                                         title: f(.diagHotkeyFailed, combos.joined(separator: ", ")),
                                         detail: t(.diagHotkeyFailedDetail)))
+        }
+        let tools: [(String, Bool, HotkeyPreset)] = [("launcher", settings.launcherEnabled, settings.launcherHotkey),
+                                                     ("shelf", settings.shelfEnabled, settings.shelfHotkey)]
+        for (owner, enabled, preset) in tools where enabled {
+            guard let shortcut = status.systemShortcuts[preset.combo] else { continue }
+            items.append(DiagnosticItem(id: "system-hotkey-\(owner)", state: .warning,
+                                        title: f(.systemShortcutClash, preset.combo.display, t(shortcut.label)),
+                                        detail: t(.systemShortcutClashDetail), fixes: [.openKeyboardSettings]))
         }
         if settings.snapEnabled && settings.snapDragEnabled && ToolsController.systemEdgeTilingEnabled {
             items.append(DiagnosticItem(id: "tiling", state: .warning, title: t(.diagSystemTiling),

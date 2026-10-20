@@ -31,6 +31,7 @@ enum SelfTest {
         testLocalization()
         MainActor.assumeIsolated { testDiagnostics() }
         testTools()
+        MainActor.assumeIsolated { testLauncherModel() }
         MainActor.assumeIsolated { testShelf() }
         testRendering(outputDirectory: outputDirectory)
         MainActor.assumeIsolated { testOwnWindowSnapshot(outputDirectory: outputDirectory) }
@@ -337,7 +338,7 @@ enum SelfTest {
         check(summary.hasPrefix("Off for other apps"), "status-samenvatting in het logboek is Engels")
     }
 
-    // MARK: Tools (Magnet / Alfred / Dropzone)
+    // MARK: Tools (arranging windows, launcher, file shelf)
 
     private static func testTools() {
         print("== Gereedschap ==")
@@ -373,8 +374,33 @@ enum SelfTest {
               "Carbon-modifiers kloppen")
         check(Set(HotkeyPreset.allCases.map(\.combo)).count == HotkeyPreset.allCases.count, "sneltoetskeuzes zijn uniek")
         let defaults = AppSettings(defaults: UserDefaults(suiteName: (NSTemporaryDirectory() as NSString).appendingPathComponent("tlg.tools.\(getpid())")) ?? .standard)
-        check(defaults.launcherHotkey.combo == KeyCombo(49, [.option]) && defaults.launcherHotkey != defaults.shelfHotkey,
-              "standaard: snelstarter ⌥Space, plank een andere sneltoets")
+        let reserved = SystemShortcuts.current()
+        check(reserved[defaults.launcherHotkey.combo] == nil && reserved[defaults.shelfHotkey.combo] == nil
+              && defaults.launcherHotkey != defaults.shelfHotkey,
+              "standaard: sneltoetsen die macOS niet gebruikt (snelstarter \(defaults.launcherHotkey.combo.display), plank \(defaults.shelfHotkey.combo.display))")
+        check(HotkeyPreset.commandSpace.combo.display == "⌘Space" && HotkeyPreset.commandSpace.combo.carbonModifiers == 256,
+              "⌘Space is een keuze")
+        let cmdSpace = KeyCombo(49, [.command])
+        check(HotkeyPreset.firstFree(HotkeyPreset.launcherOrder, taken: []) == .commandSpace
+              && HotkeyPreset.firstFree(HotkeyPreset.launcherOrder, taken: [cmdSpace]) == .optionSpace
+              && HotkeyPreset.firstFree(HotkeyPreset.shelfOrder, taken: [KeyCombo(49, [.control, .option])]) == .optionShiftSpace,
+              "standaard ⌘Space als Spotlight die niet gebruikt, anders ⌥Space")
+        // macOS shortcuts (com.apple.symbolichotkeys).
+        func entry(_ enabled: Int, _ key: Int, _ flags: Int) -> [String: Any] {
+            ["enabled": NSNumber(value: enabled), "value": ["parameters": [NSNumber(value: 65535), NSNumber(value: key), NSNumber(value: flags)],
+                                                         "type": "standard"] as [String: Any]]
+        }
+        let spotlightOff = SystemShortcuts.reserved(from: ["64": entry(0, 49, 1_048_576), "65": entry(1, 49, 1_572_864),
+                                                           "60": entry(1, 49, 262_144), "61": entry(1, 49, 786_432)],
+                                                    keyboardInputSources: 1)
+        check(spotlightOff[cmdSpace] == nil && spotlightOff[KeyCombo(49, [.option, .command])] == .finderSearch
+              && spotlightOff[KeyCombo(49, [.control, .option])] == nil, "Spotlight uit: ⌘Space vrij; invoerbron telt pas bij 2 bronnen")
+        let fresh = SystemShortcuts.reserved(from: nil, keyboardInputSources: 2)
+        check(fresh[cmdSpace] == .spotlight && fresh[KeyCombo(49, [.control])] == .previousInputSource
+              && fresh[KeyCombo(49, [.control, .option])] == .nextInputSource, "nieuwe Mac: macOS-standaarden worden herkend")
+        let moved = SystemShortcuts.reserved(from: ["64": entry(1, 49, 524_288), "65": entry(1, 65535, 0)], keyboardInputSources: 1)
+        check(moved[KeyCombo(49, [.option])] == .spotlight && moved[cmdSpace] == nil && moved.count == 1,
+              "Spotlight op een andere toets en lege toets worden goed gelezen")
         check(!Set(snapCombos).contains(defaults.launcherHotkey.combo) && !Set(snapCombos).contains(defaults.shelfHotkey.combo),
               "geen botsing tussen schikken, snelstarter en plank")
 
@@ -408,6 +434,32 @@ enum SelfTest {
         check(apps.count > 10 && apps.contains { $0.name == "Safari" || $0.name == "Finder" || $0.name.contains("Settings") },
               "app-index vindt geïnstalleerde apps (\(apps.count))")
         check(Set(apps.map { $0.name.lowercased() }).count == apps.count, "geen dubbele apps in de index")
+    }
+
+    @MainActor
+    private static func testLauncherModel() {
+        print("== Snelstarter en Google ==")
+        check(WebSearch.googleURL(for: "c++ & co")?.absoluteString == "https://www.google.com/search?q=c%2B%2B%20%26%20co",
+              "Google-link: + & en spaties goed gecodeerd")
+        check(WebSearch.googleURL(for: "weer Zürich #1?")?.absoluteString == "https://www.google.com/search?q=weer%20Z%C3%BCrich%20%231%3F",
+              "Google-link: accenten, # en ? goed gecodeerd")
+        check(WebSearch.googleURL(for: "   ") == nil && WebSearch.googleURL(for: String(repeating: "a", count: 3000)) == nil,
+              "lege of veel te lange zoekopdracht → geen link")
+        check(WebSearch.prefixedQuery("g weer amsterdam") == "weer amsterdam" && WebSearch.prefixedQuery("Google  maps") == "maps"
+              && WebSearch.prefixedQuery("gmail") == nil && WebSearch.prefixedQuery("g ") == nil, "voorvoegsel ‘g ’ zoekt meteen op Google")
+        let model = LauncherModel()
+        var opened: [URL] = []
+        model.openURL = { opened.append($0) }
+        model.query = "g weer amsterdam"
+        check(model.results.count == 1 && model.results[0].isWeb, "‘g …’ toont alleen de Google-regel")
+        model.activate()
+        check(opened.last?.absoluteString == "https://www.google.com/search?q=weer%20amsterdam", "↩ op de Google-regel opent google.com")
+        model.query = "2+3*4"
+        check(model.results.first?.title == "= 14" && model.results.last?.isWeb == true, "berekening bovenaan, Google-regel onderaan")
+        model.searchGoogle()
+        check(opened.last?.absoluteString == "https://www.google.com/search?q=2%2B3%2A4", "⌥↩ zoekt op Google wat er getypt is")
+        model.query = ""
+        check(model.results.isEmpty, "leeg zoekveld → geen resultaten")
     }
 
     @MainActor
